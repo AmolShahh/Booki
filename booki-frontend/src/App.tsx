@@ -11,6 +11,20 @@ const App: React.FC = () => {
   const [books, setBooks] = useState<any>({});
   const [activeTab, setActiveTab] = useState<"add" | "rankings">("add");
 
+  const [addTabState, setAddTabState] = useState<any>({
+    query: "",
+    results: [],
+    addingBook: null,
+    selectedCategory: "liked it",
+    tagsInput: "",
+    low: 0,
+    high: 0,
+    midIndex: 0,
+    showAddModal: false,
+    showComparisonModal: false,
+    isComparing: false,
+  });
+
   const fetchBooks = async () => {
     try {
       const res = await axios.get(`${API}/books`);
@@ -47,8 +61,17 @@ const App: React.FC = () => {
 
         {/* Tab content */}
         <div className="max-w-2xl mx-auto">
-          {activeTab === "add" && <AddBookTab books={books} setBooks={setBooks} />}
-          {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} />}
+          {activeTab === "add" && (
+            <AddBookTab
+              books={books}
+              setBooks={setBooks}
+              addTabState={addTabState}
+              setAddTabState={setAddTabState}
+            />
+          )}
+          {activeTab === "rankings" && (
+            <RankingsTab books={books} setBooks={setBooks} />
+          )}
         </div>
       </div>
     </div>

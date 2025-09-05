@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import axios from "axios";
 import Modal from "./Modal";
 import Button from "./Button";
@@ -6,70 +6,87 @@ import Button from "./Button";
 interface AddBookTabProps {
   books: any;
   setBooks: React.Dispatch<React.SetStateAction<any>>;
+  addTabState: any;
+  setAddTabState: React.Dispatch<React.SetStateAction<any>>;
 }
 
 const CATEGORIES = ["liked it", "it was ok", "didn't like it"];
 const API = "http://localhost:8000/api";
 
-const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
-  const [addingBook, setAddingBook] = useState<any>(null);
-  const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0]);
-  const [tagsInput, setTagsInput] = useState("");
-  const [low, setLow] = useState(0);
-  const [high, setHigh] = useState(0);
-  const [midIndex, setMidIndex] = useState(0);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showComparisonModal, setShowComparisonModal] = useState(false);
-  const [isComparing, setIsComparing] = useState(false);
+const AddBookTab: React.FC<AddBookTabProps> = ({
+  books,
+  setBooks,
+  addTabState,
+  setAddTabState,
+}) => {
+  const {
+    query,
+    results,
+    addingBook,
+    selectedCategory,
+    tagsInput,
+    low,
+    high,
+    midIndex,
+    showAddModal,
+    showComparisonModal,
+    isComparing,
+  } = addTabState;
+
+  const update = (field: string, value: any) =>
+    setAddTabState((prev: any) => ({ ...prev, [field]: value }));
 
   const allBooks = Object.values(books).flat();
 
   const handleSearch = async () => {
     if (!query) return;
     const res = await axios.get(`${API}/search?q=${encodeURIComponent(query)}`);
-    setResults(res.data.results || []);
+    update("results", res.data.results || []);
   };
 
   const openAddModal = (book: any) => {
-    setAddingBook(book);
-    setSelectedCategory(CATEGORIES[0]);
-    setTagsInput("");
-    setShowAddModal(true);
+    update("addingBook", book);
+    update("selectedCategory", CATEGORIES[0]);
+    update("tagsInput", "");
+    update("showAddModal", true);
   };
 
   const confirmAddBook = async () => {
-    setShowAddModal(false);
+    update("showAddModal", false);
 
     const arr = (books[selectedCategory] || []).filter(
-      b => !(b.title === addingBook.title && b.author === addingBook.author)
+      (b: any) => !(b.title === addingBook.title && b.author === addingBook.author)
     );
 
     if (arr.length === 0) {
       const updated = [{ ...addingBook, tags: tagsInput }];
       setBooks({ ...books, [selectedCategory]: updated });
-      await axios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position: 0, tags: tagsInput });
-      setAddingBook(null);
+      await axios.post(`${API}/books`, {
+        ...addingBook,
+        category: selectedCategory,
+        position: 0,
+        tags: tagsInput,
+      });
+      update("addingBook", null);
     } else {
-      setLow(0);
-      setHigh(arr.length);
-      setMidIndex(Math.floor(arr.length / 2));
-      setIsComparing(true);
-      setShowComparisonModal(true);
+      update("low", 0);
+      update("high", arr.length);
+      update("midIndex", Math.floor(arr.length / 2));
+      update("isComparing", true);
+      update("showComparisonModal", true);
     }
   };
 
   const currentComparison = () => {
     const arr = (books[selectedCategory] || []).filter(
-      b => !(b.title === addingBook.title && b.author === addingBook.author)
+      (b: any) => !(b.title === addingBook.title && b.author === addingBook.author)
     );
     return arr[midIndex];
   };
 
   const handleComparison = async (newBetter: boolean) => {
     const arr = (books[selectedCategory] || []).filter(
-      b => !(b.title === addingBook.title && b.author === addingBook.author)
+      (b: any) => !(b.title === addingBook.title && b.author === addingBook.author)
     );
 
     let newLow = low;
@@ -83,20 +100,25 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
       const updated = [...arr];
       updated.splice(position, 0, { ...addingBook, tags: tagsInput });
       setBooks({ ...books, [selectedCategory]: updated });
-      await axios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position, tags: tagsInput });
+      await axios.post(`${API}/books`, {
+        ...addingBook,
+        category: selectedCategory,
+        position,
+        tags: tagsInput,
+      });
 
-      setAddingBook(null);
-      setLow(0);
-      setHigh(0);
-      setMidIndex(0);
-      setShowComparisonModal(false);
-      setIsComparing(false);
+      update("addingBook", null);
+      update("low", 0);
+      update("high", 0);
+      update("midIndex", 0);
+      update("showComparisonModal", false);
+      update("isComparing", false);
       return;
     }
 
-    setLow(newLow);
-    setHigh(newHigh);
-    setMidIndex(Math.floor((newLow + newHigh) / 2));
+    update("low", newLow);
+    update("high", newHigh);
+    update("midIndex", Math.floor((newLow + newHigh) / 2));
   };
 
   return (
@@ -106,49 +128,53 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
           className="flex-1 px-5 py-3 rounded-full bg-white shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
           placeholder="Search for a book..."
           value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={e => {
-                if (e.key === "Enter") {
-                e.preventDefault(); // prevents form submission if inside a form
-                handleSearch();
-                }
-            }}
+          onChange={(e) => update("query", e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleSearch();
+            }
+          }}
         />
-        <Button onClick={handleSearch}>
-          Search
-        </Button>
+        <Button onClick={handleSearch}>Search</Button>
       </div>
 
-      {!isComparing && results.map((book, i) => {
-        const exists = allBooks.some(b => b.title === book.title && b.author === book.author);
-        return (
-          <div key={`${book.title}-${book.author}-${i}`} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 flex justify-between items-center hover:shadow-md hover:border-orange-200 transition-all duration-200">
-            <div>
-              <p className="font-semibold text-gray-800 text-lg">{book.title}</p>
-              <p className="text-gray-500 mt-1">{book.author}</p>
-            </div>
-            <Button
-              onClick={() => openAddModal(book)}
-              disabled={exists}
-              variant={exists ? "secondary" : "primary"}
-              className="ml-4"
+      {!isComparing &&
+        results.map((book: any, i: number) => {
+          const exists = allBooks.some(
+            (b: any) => b.title === book.title && b.author === book.author
+          );
+          return (
+            <div
+              key={`${book.title}-${book.author}-${i}`}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 flex justify-between items-center hover:shadow-md hover:border-orange-200 transition-all duration-200"
             >
-              {exists ? "Added" : "Add +"}
-            </Button>
-          </div>
-        );
-      })}
+              <div>
+                <p className="font-semibold text-gray-800 text-lg">{book.title}</p>
+                <p className="text-gray-500 mt-1">{book.author}</p>
+              </div>
+              <Button
+                onClick={() => openAddModal(book)}
+                disabled={exists}
+                variant={exists ? "secondary" : "primary"}
+                className="ml-4"
+              >
+                {exists ? "Added" : "Add +"}
+              </Button>
+            </div>
+          );
+        })}
 
       {showAddModal && (
-        <Modal onClose={() => setShowAddModal(false)}>
+        <Modal onClose={() => update("showAddModal", false)}>
           <h2 className="text-2xl font-bold mb-6 text-gray-800">Add Book</h2>
           <div className="mb-6">
             <p className="mb-3 font-medium text-gray-700">Category:</p>
             <div className="flex gap-2 flex-wrap">
-              {CATEGORIES.map(c => (
+              {CATEGORIES.map((c) => (
                 <Button
                   key={c}
-                  onClick={() => setSelectedCategory(c)}
+                  onClick={() => update("selectedCategory", c)}
                   variant={selectedCategory === c ? "primary" : "secondary"}
                   className="text-sm"
                 >
@@ -163,7 +189,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
               className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
               placeholder="e.g., fiction, mystery, favorite"
               value={tagsInput}
-              onChange={e => setTagsInput(e.target.value)}
+              onChange={(e) => update("tagsInput", e.target.value)}
             />
           </div>
           <Button onClick={confirmAddBook} className="w-full">
@@ -173,8 +199,15 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
       )}
 
       {showComparisonModal && currentComparison() && (
-        <Modal onClose={() => { setShowComparisonModal(false); setIsComparing(false); }}>
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Which book did you like more?</h2>
+        <Modal
+          onClose={() => {
+            update("showComparisonModal", false);
+            update("isComparing", false);
+          }}
+        >
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">
+            Which book did you like more?
+          </h2>
           <div className="space-y-4 mb-6">
             <div className="p-5 bg-gray-50 rounded-2xl border border-gray-200">
               <p className="font-semibold text-gray-800">{currentComparison().title}</p>
@@ -186,10 +219,18 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
             </div>
           </div>
           <div className="flex justify-between gap-3">
-            <Button onClick={() => handleComparison(false)} variant="secondary" className="w-1/2">
+            <Button
+              onClick={() => handleComparison(false)}
+              variant="secondary"
+              className="w-1/2"
+            >
               First Book
             </Button>
-            <Button onClick={() => handleComparison(true)} variant="primary" className="w-1/2">
+            <Button
+              onClick={() => handleComparison(true)}
+              variant="primary"
+              className="w-1/2"
+            >
               Second Book
             </Button>
           </div>
