@@ -101,14 +101,20 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
 
   return (
     <div>
-      <div className="flex mb-4">
+      <div className="flex mb-6 gap-3">
         <input
-          className="flex-1 px-4 py-2 rounded-full shadow-sm border focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="flex-1 px-5 py-3 rounded-full bg-white shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
           placeholder="Search for a book..."
           value={query}
           onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => {
+                if (e.key === "Enter") {
+                e.preventDefault(); // prevents form submission if inside a form
+                handleSearch();
+                }
+            }}
         />
-        <Button onClick={handleSearch} className="ml-2">
+        <Button onClick={handleSearch}>
           Search
         </Button>
       </div>
@@ -116,18 +122,18 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
       {!isComparing && results.map((book, i) => {
         const exists = allBooks.some(b => b.title === book.title && b.author === book.author);
         return (
-          <div key={`${book.title}-${book.author}-${i}`} className="bg-white rounded-xl shadow-md p-4 mb-3 flex justify-between items-center hover:shadow-lg transition">
+          <div key={`${book.title}-${book.author}-${i}`} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 flex justify-between items-center hover:shadow-md hover:border-orange-200 transition-all duration-200">
             <div>
-              <p className="font-semibold">{book.title}</p>
-              <p className="text-gray-500">{book.author}</p>
+              <p className="font-semibold text-gray-800 text-lg">{book.title}</p>
+              <p className="text-gray-500 mt-1">{book.author}</p>
             </div>
             <Button
               onClick={() => openAddModal(book)}
               disabled={exists}
-              variant="success"
-              className="px-3 py-1"
+              variant={exists ? "secondary" : "primary"}
+              className="ml-4"
             >
-              {exists ? "Already added" : "+"}
+              {exists ? "Added" : "Add +"}
             </Button>
           </div>
         );
@@ -135,26 +141,27 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
 
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)}>
-          <h2 className="text-xl font-bold mb-4">Add Book</h2>
-          <div className="mb-4">
-            <p className="mb-1 font-medium">Category:</p>
-            <div className="flex space-x-2">
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">Add Book</h2>
+          <div className="mb-6">
+            <p className="mb-3 font-medium text-gray-700">Category:</p>
+            <div className="flex gap-2 flex-wrap">
               {CATEGORIES.map(c => (
                 <Button
                   key={c}
                   onClick={() => setSelectedCategory(c)}
                   variant={selectedCategory === c ? "primary" : "secondary"}
-                  className="px-3 py-1"
+                  className="text-sm"
                 >
                   {c}
                 </Button>
               ))}
             </div>
           </div>
-          <div className="mb-4">
-            <p className="mb-1 font-medium">Tags (optional):</p>
+          <div className="mb-6">
+            <p className="mb-2 font-medium text-gray-700">Tags (optional):</p>
             <input
-              className="border p-2 rounded w-full"
+              className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+              placeholder="e.g., fiction, mystery, favorite"
               value={tagsInput}
               onChange={e => setTagsInput(e.target.value)}
             />
@@ -167,17 +174,23 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks }) => {
 
       {showComparisonModal && currentComparison() && (
         <Modal onClose={() => { setShowComparisonModal(false); setIsComparing(false); }}>
-          <h2 className="text-xl font-bold mb-4">Which book is better?</h2>
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg shadow">{currentComparison().title} by {currentComparison().author}</div>
-            <div className="p-4 bg-blue-50 rounded-lg shadow">{addingBook.title} by {addingBook.author}</div>
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">Which book did you like more?</h2>
+          <div className="space-y-4 mb-6">
+            <div className="p-5 bg-gray-50 rounded-2xl border border-gray-200">
+              <p className="font-semibold text-gray-800">{currentComparison().title}</p>
+              <p className="text-gray-500 mt-1">by {currentComparison().author}</p>
+            </div>
+            <div className="p-5 bg-orange-50 rounded-2xl border border-orange-200">
+              <p className="font-semibold text-gray-800">{addingBook.title}</p>
+              <p className="text-gray-500 mt-1">by {addingBook.author}</p>
+            </div>
           </div>
-          <div className="flex justify-between mt-4">
-            <Button onClick={() => handleComparison(false)} variant="danger" className="w-1/2 mr-2">
-              Existing Wins
+          <div className="flex justify-between gap-3">
+            <Button onClick={() => handleComparison(false)} variant="secondary" className="w-1/2">
+              First Book
             </Button>
-            <Button onClick={() => handleComparison(true)} variant="success" className="w-1/2 ml-2">
-              New Wins
+            <Button onClick={() => handleComparison(true)} variant="primary" className="w-1/2">
+              Second Book
             </Button>
           </div>
         </Modal>

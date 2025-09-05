@@ -25,27 +25,31 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <h1 className="text-3xl font-bold mb-6 text-center">Booki</h1>
+    <div className="min-h-screen bg-orange-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-4xl font-bold mb-8 text-center text-gray-800">
+          <span className="text-orange-500">📚</span> Booki
+        </h1>
 
-      {/* Tabs */}
-      <div className="flex justify-center mb-6">
-        <TabButton
-          label="Add Book"
-          isActive={activeTab === "add"}
-          onClick={() => setActiveTab("add")}
-        />
-        <TabButton
-          label="Rankings"
-          isActive={activeTab === "rankings"}
-          onClick={() => setActiveTab("rankings")}
-        />
-      </div>
+        {/* Tabs */}
+        <div className="flex justify-center mb-8 gap-2">
+          <TabButton
+            label="Add Book"
+            isActive={activeTab === "add"}
+            onClick={() => setActiveTab("add")}
+          />
+          <TabButton
+            label="Rankings"
+            isActive={activeTab === "rankings"}
+            onClick={() => setActiveTab("rankings")}
+          />
+        </div>
 
-      {/* Tab content */}
-      <div className="max-w-2xl mx-auto">
-        {activeTab === "add" && <AddBookTab books={books} setBooks={setBooks} />}
-        {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} />}
+        {/* Tab content */}
+        <div className="max-w-2xl mx-auto">
+          {activeTab === "add" && <AddBookTab books={books} setBooks={setBooks} />}
+          {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} />}
+        </div>
       </div>
     </div>
   );
