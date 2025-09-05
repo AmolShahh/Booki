@@ -1,0 +1,54 @@
+// src/App.tsx
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import AddBookTab from "./components/AddBookTab";
+import RankingsTab from "./components/RankingsTab";
+import TabButton from "./components/TabButton";
+
+const API = "http://localhost:8000/api";
+
+const App: React.FC = () => {
+  const [books, setBooks] = useState<any>({});
+  const [activeTab, setActiveTab] = useState<"add" | "rankings">("add");
+
+  const fetchBooks = async () => {
+    try {
+      const res = await axios.get(`${API}/books`);
+      setBooks(res.data);
+    } catch (e) {
+      console.error("Failed to fetch books:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchBooks();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+      <h1 className="text-3xl font-bold mb-6 text-center">Booki</h1>
+
+      {/* Tabs */}
+      <div className="flex justify-center mb-6">
+        <TabButton
+          label="Add Book"
+          isActive={activeTab === "add"}
+          onClick={() => setActiveTab("add")}
+        />
+        <TabButton
+          label="Rankings"
+          isActive={activeTab === "rankings"}
+          onClick={() => setActiveTab("rankings")}
+        />
+      </div>
+
+      {/* Tab content */}
+      <div className="max-w-2xl mx-auto">
+        {activeTab === "add" && <AddBookTab books={books} setBooks={setBooks} />}
+        {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} />}
+      </div>
+    </div>
+  );
+};
+
+export default App;
