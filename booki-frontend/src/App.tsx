@@ -1,5 +1,4 @@
-// src/App.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import AddBookTab from "./components/AddBookTab";
 import RankingsTab from "./components/RankingsTab";
@@ -38,6 +37,26 @@ const App: React.FC = () => {
     fetchBooks();
   }, []);
 
+  // Generate a list of all unique tags from the 'books' state
+  const allTags = useMemo(() => {
+    const uniqueTags = new Set<string>();
+    Object.values(books).forEach((categoryBooks) => {
+      if (Array.isArray(categoryBooks)) {
+        categoryBooks.forEach((book) => {
+          if (book.tags) {
+            book.tags.split(",").forEach((tag: string) => {
+              const trimmedTag = tag.trim();
+              if (trimmedTag) {
+                uniqueTags.add(trimmedTag.toLowerCase());
+              }
+            });
+          }
+        });
+      }
+    });
+    return Array.from(uniqueTags);
+  }, [books]);
+
   return (
     <div className="min-h-screen bg-orange-50 p-6">
       <div className="max-w-4xl mx-auto">
@@ -67,10 +86,11 @@ const App: React.FC = () => {
               setBooks={setBooks}
               addTabState={addTabState}
               setAddTabState={setAddTabState}
+              allTags={allTags}
             />
           )}
           {activeTab === "rankings" && (
-            <RankingsTab books={books} setBooks={setBooks} />
+            <RankingsTab books={books} setBooks={setBooks} allTags={allTags} />
           )}
         </div>
       </div>

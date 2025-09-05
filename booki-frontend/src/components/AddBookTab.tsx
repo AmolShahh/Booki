@@ -8,6 +8,7 @@ interface AddBookTabProps {
   setBooks: React.Dispatch<React.SetStateAction<any>>;
   addTabState: any;
   setAddTabState: React.Dispatch<React.SetStateAction<any>>;
+  allTags: string[];
 }
 
 const CATEGORIES = ["liked it", "it was ok", "didn't like it"];
@@ -18,6 +19,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   setBooks,
   addTabState,
   setAddTabState,
+  allTags,
 }) => {
   const {
     query,
@@ -49,6 +51,20 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
     update("selectedCategory", CATEGORIES[0]);
     update("tagsInput", "");
     update("showAddModal", true);
+  };
+
+  const handleTagClick = (tag: string) => {
+    const currentTags = tagsInput
+      .split(",")
+      .map((t: string) => t.trim())
+      .filter(Boolean);
+    const newTags = new Set(currentTags);
+    if (newTags.has(tag)) {
+      newTags.delete(tag);
+    } else {
+      newTags.add(tag);
+    }
+    update("tagsInput", Array.from(newTags).join(", "));
   };
 
   const confirmAddBook = async () => {
@@ -121,6 +137,8 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
     update("midIndex", Math.floor((newLow + newHigh) / 2));
   };
 
+  const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
+
   return (
     <div>
       <div className="flex mb-6 gap-3">
@@ -185,12 +203,26 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
           </div>
           <div className="mb-6">
             <p className="mb-2 font-medium text-gray-700">Tags (optional):</p>
-            <input
-              className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
-              placeholder="e.g., fiction, mystery, favorite"
-              value={tagsInput}
-              onChange={(e) => update("tagsInput", e.target.value)}
-            />
+            <div className="mb-3">
+              <input
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                placeholder="Type new tags or click on existing ones..."
+                value={tagsInput}
+                onChange={(e) => update("tagsInput", e.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-2">
+              {allTags.map((tag) => (
+                <Button
+                  key={tag}
+                  onClick={() => handleTagClick(tag)}
+                  variant={selectedTags.includes(tag) ? "primary" : "secondary"}
+                  className="rounded-full px-3 py-1 text-xs whitespace-nowrap"
+                >
+                  {tag}
+                </Button>
+              ))}
+            </div>
           </div>
           <Button onClick={confirmAddBook} className="w-full">
             Add & Compare

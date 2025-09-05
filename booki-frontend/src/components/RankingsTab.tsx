@@ -6,22 +6,24 @@ import Button from "./Button";
 interface RankingsTabProps {
   books: any;
   setBooks: React.Dispatch<React.SetStateAction<any>>;
+  allTags: string[];
 }
 
 const CATEGORIES = ["liked it", "it was ok", "didn't like it"];
 const API = "http://localhost:8000/api";
 
-const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks }) => {
+const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) => {
   const [editingBook, setEditingBook] = useState<any>(null);
   const [tagsInput, setTagsInput] = useState("");
   const [filterTag, setFilterTag] = useState("");
+  const [bookToDelete, setBookToDelete] = useState<any>(null); // New state for confirmation
 
-  const openEditModal = (book: any) => {
+  const handleEditTags = (book: any) => {
     setEditingBook(book);
     setTagsInput(book.tags || "");
   };
 
-  const confirmEditTags = async () => {
+  const handleSaveTags = async () => {
     if (!editingBook) return;
     await axios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
     const updatedBooks = { ...books };
@@ -30,13 +32,16 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks }) => {
     );
     setBooks(updatedBooks);
     setEditingBook(null);
+    setTagsInput("");
   };
 
-  const deleteBook = async (book: any) => {
-    await axios.delete(`${API}/books/${book.id}`);
+  const confirmDelete = async () => {
+    if (!bookToDelete) return;
+    await axios.delete(`${API}/books/${bookToDelete.id}`);
     const updatedBooks = { ...books };
-    updatedBooks[book.category] = updatedBooks[book.category].filter((b: any) => b.id !== book.id);
+    updatedBooks[bookToDelete.category] = updatedBooks[bookToDelete.category].filter((b: any) => b.id !== bookToDelete.id);
     setBooks(updatedBooks);
+    setBookToDelete(null); // Reset state after deletion
   };
 
   const filteredBooks = (category: string) => {
@@ -53,6 +58,22 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks }) => {
       default: return "📚";
     }
   };
+
+  const handleTagClick = (tag: string) => {
+    const currentTags = tagsInput
+      .split(",")
+      .map((t: string) => t.trim())
+      .filter(Boolean);
+    const newTags = new Set(currentTags);
+    if (newTags.has(tag)) {
+      newTags.delete(tag);
+    } else {
+      newTags.add(tag);
+    }
+    setTagsInput(Array.from(newTags).join(", "));
+  };
+  
+  const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
 
   return (
     <div>
@@ -110,14 +131,14 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks }) => {
               <div className="flex gap-2 ml-4">
                 <Button 
                   variant="secondary" 
-                  onClick={() => openEditModal(book)}
+                  onClick={() => handleEditTags(book)}
                   className="text-sm"
                 >
                   Edit Tags
                 </Button>
                 <Button 
                   variant="danger" 
-                  onClick={() => deleteBook(book)}
+                  onClick={() => setBookToDelete(book)}
                   className="text-sm"
                 >
                   Remove
@@ -135,15 +156,46 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks }) => {
             <p className="font-semibold text-gray-800">{editingBook.title}</p>
             <p className="text-gray-500">{editingBook.author}</p>
           </div>
-          <input
-            className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 mb-6"
-            placeholder="e.g., fiction, mystery, favorite"
-            value={tagsInput}
-            onChange={e => setTagsInput(e.target.value)}
-          />
-          <Button onClick={confirmEditTags} className="w-full">
+          <div className="mb-6">
+            <input
+              className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+              placeholder="Type new tags or click on existing ones..."
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-2">
+            {allTags.map((tag) => (
+              <Button
+                key={tag}
+                onClick={() => handleTagClick(tag)}
+                variant={selectedTags.includes(tag) ? "primary" : "secondary"}
+                className="rounded-full px-3 py-1 text-xs whitespace-nowrap"
+              >
+                {tag}
+              </Button>
+            ))}
+          </div>
+          <Button onClick={handleSaveTags} className="w-full mt-6">
             Save Tags
           </Button>
+        </Modal>
+      )}
+
+      {bookToDelete && (
+        <Modal onClose={() => setBookToDelete(null)}>
+          <h2 className="text-2xl font-bold mb-4 text-gray-800">Confirm Deletion</h2>
+          <p className="text-gray-600 mb-6">
+            Are you sure you want to remove "<span className="font-semibold">{bookToDelete.title}</span>"? This action cannot be undone.
+          </p>
+          <div className="flex justify-between gap-4">
+            <Button variant="secondary" onClick={() => setBookToDelete(null)} className="w-full">
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmDelete} className="w-full">
+              Confirm Delete
+            </Button>
+          </div>
         </Modal>
       )}
     </div>
