@@ -62,7 +62,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
     if (newTags.has(tag)) {
       newTags.delete(tag);
     } else {
-      newTags.add(tag);
+      newTags.add(tag.toLowerCase());
     }
     update("tagsInput", Array.from(newTags).join(", "));
   };
