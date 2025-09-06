@@ -25,23 +25,33 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
 
   const handleSaveTags = async () => {
     if (!editingBook) return;
-    await axios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
-    const updatedBooks = { ...books };
-    updatedBooks[editingBook.category] = updatedBooks[editingBook.category].map((b: any) =>
-      b.id === editingBook.id ? { ...b, tags: tagsInput } : b
-    );
-    setBooks(updatedBooks);
-    setEditingBook(null);
-    setTagsInput("");
+    try {
+      await axios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
+      const updatedBooks = { ...books };
+      updatedBooks[editingBook.category] = updatedBooks[editingBook.category].map((b: any) =>
+        b.id === editingBook.id ? { ...b, tags: tagsInput } : b
+      );
+      setBooks(updatedBooks);
+    } catch (error) {
+      console.error("Error saving tags:", error);
+    } finally {
+      setEditingBook(null);
+      setTagsInput("");
+    }
   };
 
   const confirmDelete = async () => {
     if (!bookToDelete) return;
-    await axios.delete(`${API}/books/${bookToDelete.id}`);
-    const updatedBooks = { ...books };
-    updatedBooks[bookToDelete.category] = updatedBooks[bookToDelete.category].filter((b: any) => b.id !== bookToDelete.id);
-    setBooks(updatedBooks);
-    setBookToDelete(null); // Reset state after deletion
+    try {
+      await axios.delete(`${API}/books/${bookToDelete.id}`);
+      const updatedBooks = { ...books };
+      updatedBooks[bookToDelete.category] = updatedBooks[bookToDelete.category].filter((b: any) => b.id !== bookToDelete.id);
+      setBooks(updatedBooks);
+    } catch (error) {
+      console.error("Error deleting book:", error);
+    } finally {
+      setBookToDelete(null); // Reset state after deletion
+    }
   };
 
   const filteredBooks = (category: string) => {
@@ -75,6 +85,9 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
   
   const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
 
+  // Initialize a counter for continuous numbering
+  let continuousBookNumber = 0;
+
   return (
     <div>
       <div className="mb-6">
@@ -86,68 +99,75 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
         />
       </div>
 
-      {CATEGORIES.map(cat => (
-        <div key={cat} className="mb-8">
-          <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center gap-2">
-            <span>{getCategoryEmoji(cat)}</span>
-            <span className="capitalize">{cat}</span>
-            <span className="text-sm font-normal text-gray-500 ml-2">
-              ({filteredBooks(cat).length} books)
-            </span>
-          </h2>
-          
-          {filteredBooks(cat).length === 0 && (
-            <p className="text-gray-400 italic p-4">No books in this category</p>
-          )}
-          
-          {filteredBooks(cat).map((book: any, index: number) => (
-            <div
-              key={book.id}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 flex justify-between items-center hover:shadow-md hover:border-orange-200 transition-all duration-200"
-            >
-              <div className="flex-1">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl font-bold text-orange-500 mt-1">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p className="font-semibold text-gray-800 text-lg">{book.title}</p>
-                    <p className="text-gray-500 mt-1">{book.author}</p>
-                    {book.tags && (
-                      <div className="flex flex-wrap mt-3 gap-2">
-                        {book.tags.split(",").map((tag: string, i: number) => (
-                          <span
-                            key={i}
-                            className="bg-orange-100 text-orange-700 text-xs px-3 py-1 rounded-full font-medium"
-                          >
-                            {tag.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+      {CATEGORIES.map(cat => {
+        const booksInCategory = filteredBooks(cat);
+        const startIndex = continuousBookNumber + 1;
+        continuousBookNumber += booksInCategory.length;
+        const endIndex = continuousBookNumber;
+
+        return (
+          <div key={cat} className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+              <span>{getCategoryEmoji(cat)}</span>
+              <span className="capitalize">{cat}</span>
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                ({booksInCategory.length} books)
+              </span>
+            </h2>
+            
+            {booksInCategory.length === 0 && (
+              <p className="text-gray-400 italic p-4">No books in this category</p>
+            )}
+            
+            {booksInCategory.map((book: any, index: number) => (
+              <div
+                key={book.id}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 flex justify-between items-center hover:shadow-md hover:border-orange-200 transition-all duration-200"
+              >
+                <div className="flex-1">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl font-bold text-orange-500 mt-1">
+                      {startIndex + index}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-lg">{book.title}</p>
+                      <p className="text-gray-500 mt-1">{book.author}</p>
+                      {book.tags && (
+                        <div className="flex flex-wrap mt-3 gap-2">
+                          {book.tags.split(",").map((tag: string, i: number) => (
+                            <span
+                              key={i}
+                              className="bg-orange-100 text-orange-700 text-xs px-3 py-1 rounded-full font-medium"
+                            >
+                              {tag.trim()}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+                <div className="flex gap-2 ml-4">
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => handleEditTags(book)}
+                    className="text-sm"
+                  >
+                    Edit Tags
+                  </Button>
+                  <Button 
+                    variant="danger" 
+                    onClick={() => setBookToDelete(book)}
+                    className="text-sm"
+                  >
+                    Remove
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2 ml-4">
-                <Button 
-                  variant="secondary" 
-                  onClick={() => handleEditTags(book)}
-                  className="text-sm"
-                >
-                  Edit Tags
-                </Button>
-                <Button 
-                  variant="danger" 
-                  onClick={() => setBookToDelete(book)}
-                  className="text-sm"
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
+            ))}
+          </div>
+        );
+      })}
 
       {editingBook && (
         <Modal onClose={() => setEditingBook(null)}>
