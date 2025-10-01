@@ -2,4 +2,4 @@ fastapi
 pydantic
 starlette
 requests
-cloudflare-worker
+workers
