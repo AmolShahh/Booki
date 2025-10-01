@@ -93,7 +93,7 @@ app.get('/books', async (c) => {
 app.post('/books', async (c) => {
   const db = c.env.DB;
   const book: Book = await c.req.json();
-  
+  console.log("adding new book with data: ", book)
   // Shift positions
   await db.prepare(
     'UPDATE books SET position = position + 1 WHERE category = ? AND position >= ?'
