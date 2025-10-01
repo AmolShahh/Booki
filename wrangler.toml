@@ -1,0 +1,7 @@
+name = "booki"
+compatibility_date = "2025-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "booki-books"
+database_id = "a9207241-ad31-4320-a386-8194f3c7033c"
