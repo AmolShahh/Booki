@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API = "http://localhost:8000/api";
+const API = "https://booki-2od.pages.dev/api";
 
 export const searchBooks = (query: string) =>
   axios.get(`${API}/search?q=${encodeURIComponent(query)}`).then(res => res.data);
