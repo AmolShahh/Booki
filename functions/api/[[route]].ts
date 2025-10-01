@@ -204,5 +204,5 @@ app.get('/search', async (c) => {
 
 // Export for Cloudflare Pages Functions
 export const onRequest: PagesFunction<Env> = async (context) => {
-  return app.fetch(context.request, context.env, context);
+  return app.fetch(context.request, context.env);
 };
