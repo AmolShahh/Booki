@@ -87,16 +87,16 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
   const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
 
   // --- Drag and Drop Handlers for "tbr" category ---
-  const handleDragStart = (e, book) => {
+  const handleDragStart = (e: any, book: any) => {
     setDraggedItem(book);
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: any) => {
     e.preventDefault();
   };
 
-  const handleDrop = async (e, droppedOnBook) => {
+  const handleDrop = async (e: any, droppedOnBook: any) => {
     e.preventDefault();
     if (!draggedItem || draggedItem.id === droppedOnBook.id) {
       setDraggedItem(null);
@@ -104,8 +104,8 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     }
 
     const tbrBooks = books.tbr.slice();
-    const draggedIndex = tbrBooks.findIndex(b => Number(b.id) === Number(draggedItem.id));
-    const droppedOnIndex = tbrBooks.findIndex(b => Number(b.id) === Number(droppedOnBook.id));
+    const draggedIndex = tbrBooks.findIndex((b: any) => Number(b.id) === Number(draggedItem.id));
+    const droppedOnIndex = tbrBooks.findIndex((b: any) => Number(b.id) === Number(droppedOnBook.id));
 
     // Remove the dragged book
     tbrBooks.splice(draggedIndex, 1);
@@ -116,7 +116,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     setBooks(updatedBooks);
 
     // Prepare payload for backend API call
-    const reorderedData = tbrBooks.map((book, index) => ({
+    const reorderedData = tbrBooks.map((book: any, index: any) => ({
       id: Number(book.id),
       position: Number(index),
     }));
@@ -150,7 +150,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         const booksInCategory = filteredBooks(cat);
         const startIndex = continuousBookNumber + 1;
         continuousBookNumber += booksInCategory.length;
-        const endIndex = continuousBookNumber;
+        // const endIndex = continuousBookNumber;
 
         return (
           <div key={cat} className="mb-8">

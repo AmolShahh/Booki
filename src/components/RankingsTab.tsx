@@ -103,7 +103,7 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
         const booksInCategory = filteredBooks(cat);
         const startIndex = continuousBookNumber + 1;
         continuousBookNumber += booksInCategory.length;
-        const endIndex = continuousBookNumber;
+        // const endIndex = continuousBookNumber;
 
         return (
           <div key={cat} className="mb-8">

@@ -190,8 +190,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
     const newBooks = lines.slice(1).map(line => {
       if (!line.trim()) return null;
 
-      // This is a more robust way to parse a CSV line. It handles quoted fields containing commas.
-      const cols = [];
+      const cols : any = [];
       let inQuote = false;
       let col = "";
       for (const char of line) {
@@ -237,7 +236,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
     const uniqueNewBooks = newBooks.filter((book) => {
       return !allBooks.some(
         (existingBook: any) =>
-          existingBook.title === book.title && existingBook.author === book.author
+          existingBook.title === book?.title && existingBook.author === book?.author
       );
     });
 
