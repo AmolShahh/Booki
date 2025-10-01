@@ -26,7 +26,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 // CORS middleware
 app.use('/*', cors({
-  origin: ['http://localhost:5173', 'https://booki.pages.dev'], // Update with your actual domain
+  origin: ['https://booki-2od.pages.dev/'], // Update with your actual domain
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type'],
   credentials: true,
