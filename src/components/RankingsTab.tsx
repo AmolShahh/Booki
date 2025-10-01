@@ -10,7 +10,7 @@ interface RankingsTabProps {
 }
 
 const CATEGORIES = ["liked it", "it was ok", "didn't like it"];
-const API = "http://localhost:8000/api";
+const API = "https://booki-2od.pages.dev/api";
 
 const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) => {
   const [editingBook, setEditingBook] = useState<any>(null);

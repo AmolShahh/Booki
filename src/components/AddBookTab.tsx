@@ -12,7 +12,7 @@ interface AddBookTabProps {
 }
 
 const CATEGORIES = ["liked it", "it was ok", "didn't like it", "tbr"];
-const API = "http://localhost:8000/api";
+const API = "https://booki-2od.pages.dev/api";
 
 const AddBookTab: React.FC<AddBookTabProps> = ({
   books,
