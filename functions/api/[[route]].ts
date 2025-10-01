@@ -173,7 +173,7 @@ app.get('/search', async (c) => {
   }
   
   const response = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}`);
-  const data = await response.json();
+  const data = await response.json() as { docs?: any[] };
   const docs = data.docs?.slice(0, 10) || [];
   
   const results = docs.map((d: any) => ({
