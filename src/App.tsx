@@ -5,7 +5,7 @@ import RankingsTab from "./components/RankingsTab";
 import TbrTab from "./components/TbrTab";
 import TabButton from "./components/TabButton";
 
-const API = "https://booki-2od.pages.dev/api/";
+const API = "https://booki-2od.pages.dev/api";
 
 const App: React.FC = () => {
   const [books, setBooks] = useState<any>({});
