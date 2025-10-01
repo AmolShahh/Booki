@@ -21,12 +21,12 @@ type ReorderItem = {
   position: number;
 };
 
-// Create Hono app
-const app = new Hono<{ Bindings: Env }>();
+// Create Hono app with base path
+const app = new Hono<{ Bindings: Env }>().basePath('/api');
 
 // CORS middleware
 app.use('/*', cors({
-  origin: ['https://booki-2od.pages.dev/'], // Update with your actual domain
+  origin: ['https://booki-2od.pages.dev'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type'],
   credentials: true,
@@ -51,7 +51,14 @@ async function initializeDB(db: D1Database) {
 
 // Middleware to initialize DB
 app.use('*', async (c, next) => {
-  await initializeDB(c.env.DB);
+  try {
+    if (c.env.DB) {
+      await initializeDB(c.env.DB);
+    }
+  } catch (error) {
+    console.error('DB initialization error:', error);
+    // Continue anyway - table might already exist
+  }
   await next();
 });
 
@@ -166,24 +173,36 @@ app.put('/reorder', async (c) => {
 
 // GET /api/search - Search books using OpenLibrary API
 app.get('/search', async (c) => {
-  const query = c.req.query('q');
-  
-  if (!query) {
-    return c.json({ error: 'Query parameter required' }, 400);
+  try {
+    const query = c.req.query('q');
+    
+    if (!query) {
+      return c.json({ error: 'Query parameter required' }, 400);
+    }
+    
+    const response = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}`);
+    
+    if (!response.ok) {
+      throw new Error(`OpenLibrary API returned ${response.status}`);
+    }
+    
+    const data = await response.json() as { docs?: any[] };
+    const docs = data.docs?.slice(0, 10) || [];
+    
+    const results = docs.map((d: any) => ({
+      title: d.title,
+      author: d.author_name?.join(', ') || 'Unknown',
+      isbn: d.isbn?.[0] || null
+    }));
+    
+    return c.json({ results });
+  } catch (error) {
+    console.error('Search error:', error);
+    return c.json({ error: 'Search failed', details: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
-  
-  const response = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}`);
-  const data = await response.json() as { docs?: any[] };
-  const docs = data.docs?.slice(0, 10) || [];
-  
-  const results = docs.map((d: any) => ({
-    title: d.title,
-    author: d.author_name?.join(', ') || 'Unknown',
-    isbn: d.isbn?.[0] || null
-  }));
-  
-  return c.json({ results });
 });
 
 // Export for Cloudflare Pages Functions
-export const onRequest = app.fetch;
+export const onRequest: PagesFunction<Env> = async (context) => {
+  return app.fetch(context.request, context.env, context);
+};
