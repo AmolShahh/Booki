@@ -16,7 +16,7 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
   const [editingBook, setEditingBook] = useState<any>(null);
   const [tagsInput, setTagsInput] = useState("");
   const [filterTag, setFilterTag] = useState("");
-  const [bookToDelete, setBookToDelete] = useState<any>(null); // New state for confirmation
+  const [bookToDelete, setBookToDelete] = useState<any>(null);
 
   const handleEditTags = (book: any) => {
     setEditingBook(book);
@@ -50,7 +50,7 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
     } catch (error) {
       console.error("Error deleting book:", error);
     } finally {
-      setBookToDelete(null); // Reset state after deletion
+      setBookToDelete(null);
     }
   };
 
@@ -85,7 +85,6 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
   
   const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
 
-  // Initialize a counter for continuous numbering
   let continuousBookNumber = 0;
 
   return (
@@ -103,7 +102,6 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
         const booksInCategory = filteredBooks(cat);
         const startIndex = continuousBookNumber + 1;
         continuousBookNumber += booksInCategory.length;
-        // const endIndex = continuousBookNumber;
 
         return (
           <div key={cat} className="mb-8">
@@ -122,46 +120,52 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
             {booksInCategory.map((book: any, index: number) => (
               <div
                 key={book.id}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 flex justify-between items-center hover:shadow-md hover:border-orange-200 transition-all duration-200"
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 hover:shadow-md hover:border-orange-200 transition-all duration-200"
               >
-                <div className="flex-1">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl font-bold text-orange-500 mt-1">
-                      {startIndex + index}
-                    </span>
-                    <div>
-                      <p className="font-semibold text-gray-800 text-lg">{book.title}</p>
-                      <p className="text-gray-500 mt-1">{book.author}</p>
-                      {book.tags && (
-                        <div className="flex flex-wrap mt-3 gap-2">
-                          {book.tags.split(",").map((tag: string, i: number) => (
-                            <span
-                              key={i}
-                              className="bg-orange-100 text-orange-700 text-xs px-3 py-1 rounded-full font-medium"
-                            >
-                              {tag.trim()}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                {/* Mobile and Desktop responsive layout */}
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                  {/* Book info section - full width on mobile */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl font-bold text-orange-500 mt-1 flex-shrink-0">
+                        {startIndex + index}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 text-lg break-words">{book.title}</p>
+                        <p className="text-gray-500 mt-1">{book.author}</p>
+                        {book.tags && (
+                          <div className="flex flex-wrap mt-3 gap-2">
+                            {book.tags.split(",").map((tag: string, i: number) => (
+                              <span
+                                key={i}
+                                className="bg-orange-100 text-orange-700 text-xs px-3 py-1 rounded-full font-medium"
+                              >
+                                {tag.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex gap-2 ml-4">
-                  <Button 
-                    variant="secondary" 
-                    onClick={() => handleEditTags(book)}
-                    className="text-sm"
-                  >
-                    Edit Tags
-                  </Button>
-                  <Button 
-                    variant="danger" 
-                    onClick={() => setBookToDelete(book)}
-                    className="text-sm"
-                  >
-                    Remove
-                  </Button>
+                  
+                  {/* Buttons - stack on mobile, side by side on desktop */}
+                  <div className="flex gap-2 sm:flex-shrink-0 sm:ml-4">
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => handleEditTags(book)}
+                      className="text-sm flex-1 sm:flex-none"
+                    >
+                      Edit Tags
+                    </Button>
+                    <Button 
+                      variant="danger" 
+                      onClick={() => setBookToDelete(book)}
+                      className="text-sm flex-1 sm:flex-none"
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
