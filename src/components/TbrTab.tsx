@@ -98,28 +98,27 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     
     // Auto-scroll logic
     const scrollThreshold = 100; // pixels from top/bottom to trigger scroll
-    const scrollSpeed = 10; // pixels per interval
+    const scrollSpeed = 8; // pixels per interval (slightly slower)
     const mouseY = e.clientY;
     const windowHeight = window.innerHeight;
     
-    // Clear existing interval
+    // Don't create a new interval if one already exists
     if (scrollInterval) {
-      clearInterval(scrollInterval);
-      setScrollInterval(null);
+      return;
     }
     
     // Scroll up when near top
     if (mouseY < scrollThreshold) {
       const interval = setInterval(() => {
-        window.scrollBy(0, -scrollSpeed);
-      }, 20);
+        window.scrollBy({ top: -scrollSpeed, behavior: 'auto' });
+      }, 30) as unknown as number;
       setScrollInterval(interval);
     }
     // Scroll down when near bottom
     else if (mouseY > windowHeight - scrollThreshold) {
       const interval = setInterval(() => {
-        window.scrollBy(0, scrollSpeed);
-      }, 20);
+        window.scrollBy({ top: scrollSpeed, behavior: 'auto' });
+      }, 30) as unknown as number;
       setScrollInterval(interval);
     }
   };
