@@ -18,7 +18,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
   const [filterTag, setFilterTag] = useState("");
   const [bookToDelete, setBookToDelete] = useState<any>(null);
   const [draggedItem, setDraggedItem] = useState<any>(null);
-  const [scrollInterval, setScrollInterval] = useState<NodeJS.Timeout | null>(null);
+  const [scrollInterval, setScrollInterval] = useState<number | null>(null);
 
   const handleEditTags = (book: any) => {
     setEditingBook(book);
