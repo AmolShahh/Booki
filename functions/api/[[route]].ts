@@ -34,31 +34,8 @@ app.use('/*', cors({
 
 const API_CATEGORIES = ["liked it", "it was ok", "didn't like it", "tbr"];
 
-// Initialize database
-async function initializeDB(db: D1Database) {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS books (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      author TEXT NOT NULL,
-      isbn TEXT,
-      category TEXT NOT NULL,
-      position INTEGER NOT NULL,
-      tags TEXT
-    )
-  `);
-}
 
-// Middleware to initialize DB
 app.use('*', async (c, next) => {
-  try {
-    if (c.env.DB) {
-      await initializeDB(c.env.DB);
-    }
-  } catch (error) {
-    console.error('DB initialization error:', error);
-    // Continue anyway - table might already exist
-  }
   await next();
 });
 
