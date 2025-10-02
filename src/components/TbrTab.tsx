@@ -98,7 +98,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     
     // Auto-scroll logic
     const scrollThreshold = 100; // pixels from top/bottom to trigger scroll
-    const scrollSpeed = 8; // pixels per interval
+    const scrollSpeed = 12; // pixels per interval
     const mouseY = e.clientY;
     const windowHeight = window.innerHeight;
     
