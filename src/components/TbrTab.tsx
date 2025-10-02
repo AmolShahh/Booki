@@ -18,6 +18,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
   const [filterTag, setFilterTag] = useState("");
   const [bookToDelete, setBookToDelete] = useState<any>(null);
   const [draggedItem, setDraggedItem] = useState<any>(null);
+  const [scrollInterval, setScrollInterval] = useState<NodeJS.Timeout | null>(null);
 
   const handleEditTags = (book: any) => {
     setEditingBook(book);
@@ -94,10 +95,44 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
 
   const handleDragOver = (e: any) => {
     e.preventDefault();
+    
+    // Auto-scroll logic
+    const scrollThreshold = 100; // pixels from top/bottom to trigger scroll
+    const scrollSpeed = 10; // pixels per interval
+    const mouseY = e.clientY;
+    const windowHeight = window.innerHeight;
+    
+    // Clear existing interval
+    if (scrollInterval) {
+      clearInterval(scrollInterval);
+      setScrollInterval(null);
+    }
+    
+    // Scroll up when near top
+    if (mouseY < scrollThreshold) {
+      const interval = setInterval(() => {
+        window.scrollBy(0, -scrollSpeed);
+      }, 20);
+      setScrollInterval(interval);
+    }
+    // Scroll down when near bottom
+    else if (mouseY > windowHeight - scrollThreshold) {
+      const interval = setInterval(() => {
+        window.scrollBy(0, scrollSpeed);
+      }, 20);
+      setScrollInterval(interval);
+    }
   };
 
   const handleDrop = async (e: any, droppedOnBook: any) => {
     e.preventDefault();
+    
+    // Clear scroll interval
+    if (scrollInterval) {
+      clearInterval(scrollInterval);
+      setScrollInterval(null);
+    }
+    
     if (!draggedItem || draggedItem.id === droppedOnBook.id) {
       setDraggedItem(null);
       return;
@@ -128,6 +163,15 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         console.error("Error reordering books on backend:", error);
     }
 
+    setDraggedItem(null);
+  };
+  
+  const handleDragEnd = () => {
+    // Clean up scroll interval when drag ends
+    if (scrollInterval) {
+      clearInterval(scrollInterval);
+      setScrollInterval(null);
+    }
     setDraggedItem(null);
   };
   // ---------------------------------------------------
@@ -172,6 +216,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
                   onDragStart={e => handleDragStart(e, book)}
                   onDragOver={handleDragOver}
                   onDrop={e => handleDrop(e, book)}
+                  onDragEnd={handleDragEnd}
                   className={`
                     bg-white rounded-2xl shadow-sm border border-gray-100 p-5 
                     transition-all duration-200 
