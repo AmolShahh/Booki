@@ -148,7 +148,7 @@ app.put('/reorder', async (c) => {
   return c.json({ status: 'ok', message: 'Books reordered successfully' });
 });
 
-// GET /api/search - Search books using OpenLibrary API
+// GET /api/search - Search books using Google Books API
 app.get('/search', async (c) => {
   try {
     const query = c.req.query('q');
@@ -157,20 +157,25 @@ app.get('/search', async (c) => {
       return c.json({ error: 'Query parameter required' }, 400);
     }
     
-    const response = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}`);
+    const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10`);
     
     if (!response.ok) {
-      throw new Error(`OpenLibrary API returned ${response.status}`);
+      throw new Error(`Google Books API returned ${response.status}`);
     }
     
-    const data = await response.json() as { docs?: any[] };
-    const docs = data.docs?.slice(0, 10) || [];
+    const data = await response.json() as { items?: any[] };
+    const items = data.items || [];
     
-    const results = docs.map((d: any) => ({
-      title: d.title,
-      author: d.author_name?.join(', ') || 'Unknown',
-      isbn: d.isbn?.[0] || null
-    }));
+    const results = items.map((item: any) => {
+      const volumeInfo = item.volumeInfo || {};
+      return {
+        title: volumeInfo.title || 'Unknown',
+        author: volumeInfo.authors?.join(', ') || 'Unknown',
+        isbn: volumeInfo.industryIdentifiers?.find((id: any) => 
+          id.type === 'ISBN_13' || id.type === 'ISBN_10'
+        )?.identifier || null
+      };
+    });
     
     return c.json({ results });
   } catch (error) {
