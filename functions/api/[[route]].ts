@@ -26,7 +26,7 @@ const app = new Hono<{ Bindings: Env }>().basePath('/api');
 
 // CORS middleware
 app.use('/*', cors({
-  origin: ['https://booki-2od.pages.dev'],
+  origin: ['https://booki-2od.pages.dev', 'https://*.booki-2od.pages.dev'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type'],
   credentials: true,
