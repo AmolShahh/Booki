@@ -71,14 +71,13 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   };
 
   const confirmAddBook = async () => {
-    update("showAddModal", false);
-
     const arr = (books[selectedCategory] || []).filter(
       (b: any) => !(b.title === addingBook.title && b.author === addingBook.author)
     );
 
     // If the category is 'tbr', we'll skip the comparison logic entirely.
     if (selectedCategory === "tbr") {
+      update("showAddModal", false);
       let updated = books[selectedCategory] || [];
       updated.splice(updated.length, 0, { ...addingBook, tags: tagsInput });
       setBooks({ ...books, [selectedCategory]: updated });
@@ -89,12 +88,16 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
         tags: tagsInput,
       });
       // Reset all states cleanly to ensure the next item in the import queue is processed.
-      update("addingBook", null);
-      update("showAddModal", false);
-      update("showComparisonModal", false);
-      update("isComparing", false);
+      setAddTabState((prev: any) => ({
+        ...prev,
+        addingBook: null,
+        showAddModal: false,
+        showComparisonModal: false,
+        isComparing: false,
+      }));
       return;
     } else if (arr.length === 0) {
+      update("showAddModal", false);
       const updated = [{ ...addingBook, tags: tagsInput }];
       setBooks({ ...books, [selectedCategory]: updated });
       await axios.post(`${API}/books`, {
@@ -103,13 +106,23 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
         position: 0,
         tags: tagsInput,
       });
-      update("addingBook", null);
+      setAddTabState((prev: any) => ({
+        ...prev,
+        addingBook: null,
+        showAddModal: false,
+        showComparisonModal: false,
+        isComparing: false,
+      }));
     } else {
-      update("low", 0);
-      update("high", arr.length);
-      update("midIndex", Math.floor(arr.length / 2));
-      update("isComparing", true);
-      update("showComparisonModal", true);
+      setAddTabState((prev: any) => ({
+        ...prev,
+        showAddModal: false,
+        low: 0,
+        high: arr.length,
+        midIndex: Math.floor(arr.length / 2),
+        isComparing: true,
+        showComparisonModal: true,
+      }));
     }
   };
 
