@@ -37,6 +37,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importQueue, setImportQueue] = useState<any[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const update = (field: string, value: any) =>
     setAddTabState((prev: any) => ({ ...prev, [field]: value }));
@@ -71,6 +72,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   };
 
   const confirmAddBook = async () => {
+    setIsProcessing(true);
     const arr = (books[selectedCategory] || []).filter(
       (b: any) => !(b.title === addingBook.title && b.author === addingBook.author)
     );
@@ -95,6 +97,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
         showComparisonModal: false,
         isComparing: false,
       }));
+      setIsProcessing(false);
       return;
     } else if (arr.length === 0) {
       update("showAddModal", false);
@@ -113,6 +116,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
         showComparisonModal: false,
         isComparing: false,
       }));
+      setIsProcessing(false);
     } else {
       setAddTabState((prev: any) => ({
         ...prev,
@@ -123,6 +127,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
         isComparing: true,
         showComparisonModal: true,
       }));
+      setIsProcessing(false);
     }
   };
 
@@ -134,6 +139,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   };
 
   const handleComparison = async (newBetter: boolean) => {
+    setIsProcessing(true);
     const arr = (books[selectedCategory] || []).filter(
       (b: any) => !(b.title === addingBook.title && b.author === addingBook.author)
     );
@@ -156,18 +162,23 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
         tags: tagsInput,
       });
 
-      update("addingBook", null);
-      update("low", 0);
-      update("high", 0);
-      update("midIndex", 0);
-      update("showComparisonModal", false);
-      update("isComparing", false);
+      setAddTabState((prev: any) => ({
+        ...prev,
+        addingBook: null,
+        low: 0,
+        high: 0,
+        midIndex: 0,
+        showComparisonModal: false,
+        isComparing: false,
+      }));
+      setIsProcessing(false);
       return;
     }
 
     update("low", newLow);
     update("high", newHigh);
     update("midIndex", Math.floor((newLow + newHigh) / 2));
+    setIsProcessing(false);
   };
 
   const handleImportClick = () => {
@@ -263,8 +274,10 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   useEffect(() => {
     if (
       importQueue.length > 0 &&
+      !isProcessing &&
       !addTabState.showAddModal &&
-      !addTabState.showComparisonModal
+      !addTabState.showComparisonModal &&
+      !addTabState.addingBook
     ) {
       const nextBook = importQueue[0];
       
@@ -279,7 +292,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
       update("showAddModal", true);
       setImportQueue(importQueue.slice(1));
     }
-  }, [importQueue, addTabState.showAddModal, addTabState.showComparisonModal]);
+  }, [importQueue, isProcessing, addTabState.showAddModal, addTabState.showComparisonModal, addTabState.addingBook]);
 
   const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
 
