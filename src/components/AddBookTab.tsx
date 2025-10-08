@@ -349,7 +349,16 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
         })}
 
       {showAddModal && addingBook && (
-        <Modal onClose={() => update("showAddModal", false)}>
+        <Modal onClose={() => {
+          setAddTabState((prev: any) => ({
+            ...prev,
+            showAddModal: false,
+            addingBook: null,
+            isComparing: false,
+            showComparisonModal: false,
+          }));
+          setIsProcessing(false);
+        }}>
           <h2 className="text-2xl font-bold mb-6 text-gray-800">Add Book</h2>
           <div className="mb-4 p-4 rounded-xl bg-orange-50 border border-orange-200">
             <p className="font-semibold text-gray-800">{addingBook.title}</p>
@@ -412,8 +421,16 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
       {showComparisonModal && currentComparison() && (
         <Modal
           onClose={() => {
-            update("showComparisonModal", false);
-            update("isComparing", false);
+            setAddTabState((prev: any) => ({
+              ...prev,
+              showComparisonModal: false,
+              isComparing: false,
+              addingBook: null,
+              low: 0,
+              high: 0,
+              midIndex: 0,
+            }));
+            setIsProcessing(false);
           }}
         >
           <h2 className="text-2xl font-bold mb-6 text-gray-800">
