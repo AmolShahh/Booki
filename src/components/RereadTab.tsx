@@ -138,7 +138,7 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
         </div>
       ) : (
         <div className="space-y-3">
-          {rereadBooks.map((book: any, index: number) => (
+          {rereadBooks.map((book: any) => (
             <div
               key={book.id}
               className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-orange-200 transition-all duration-200"
