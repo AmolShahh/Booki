@@ -3,13 +3,14 @@ import axios from "axios";
 import AddBookTab from "./components/AddBookTab";
 import RankingsTab from "./components/RankingsTab";
 import TbrTab from "./components/TbrTab";
+import RereadTab from "./components/RereadTab";
 import TabButton from "./components/TabButton";
 
 const API = "https://booki-2od.pages.dev/api";
 
 const App: React.FC = () => {
   const [books, setBooks] = useState<any>({});
-  const [activeTab, setActiveTab] = useState<"add" | "rankings" | "tbr">("add");
+  const [activeTab, setActiveTab] = useState<"add" | "rankings" | "tbr" | "reread">("add");
 
   const [addTabState, setAddTabState] = useState<any>({
     query: "",
@@ -66,7 +67,7 @@ const App: React.FC = () => {
         </h1>
 
         {/* Tabs */}
-        <div className="flex justify-center mb-8 gap-2">
+        <div className="flex justify-center mb-8 gap-2 flex-wrap">
           <TabButton
             label="Add Book"
             isActive={activeTab === "add"}
@@ -81,6 +82,11 @@ const App: React.FC = () => {
             label="TBR"
             isActive={activeTab === "tbr"}
             onClick={() => setActiveTab("tbr")}
+          />
+          <TabButton
+            label="To Reread"
+            isActive={activeTab === "reread"}
+            onClick={() => setActiveTab("reread")}
           />
         </div>
 
@@ -100,6 +106,9 @@ const App: React.FC = () => {
           )}
           {activeTab === "tbr" && (
             <TbrTab books={books} setBooks={setBooks} allTags={allTags} />
+          )}
+          {activeTab === "reread" && (
+            <RereadTab books={books} setBooks={setBooks} allTags={allTags} />
           )}
         </div>
       </div>

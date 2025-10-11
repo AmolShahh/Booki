@@ -54,6 +54,28 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
     }
   };
 
+  const handleReread = async (book: any) => {
+    try {
+      const currentTags = book.tags || "";
+      const tagsArray = currentTags.split(",").map((t: string) => t.trim()).filter(Boolean);
+      
+      if (tagsArray.includes("to-reread")) {
+        return; // Already has the tag
+      }
+      
+      const newTags = [...tagsArray, "to-reread"].join(", ");
+      
+      await axios.put(`${API}/books/${book.id}`, { tags: newTags });
+      const updatedBooks = { ...books };
+      updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
+        b.id === book.id ? { ...b, tags: newTags } : b
+      );
+      setBooks(updatedBooks);
+    } catch (error) {
+      console.error("Error adding reread tag:", error);
+    }
+  };
+
   const filteredBooks = (category: string) => {
     return books[category]?.filter((b: any) =>
       !filterTag || (b.tags || "").toLowerCase().includes(filterTag.toLowerCase())
@@ -150,7 +172,15 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
                   </div>
                   
                   {/* Buttons - stack on mobile, side by side on desktop */}
-                  <div className="flex gap-2 sm:flex-shrink-0 sm:ml-4">
+                  <div className="flex gap-2 sm:flex-shrink-0 sm:ml-4 flex-wrap">
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => handleReread(book)}
+                      className="text-sm flex-1 sm:flex-none"
+                      disabled={book.tags?.includes("to-reread")}
+                    >
+                      {book.tags?.includes("to-reread") ? "✓ To Reread" : "Reread"}
+                    </Button>
                     <Button 
                       variant="secondary" 
                       onClick={() => handleEditTags(book)}
