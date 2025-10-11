@@ -114,19 +114,6 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
-          <span>📚</span>
-          <span>Books to Reread</span>
-          <span className="text-sm font-normal text-gray-500 ml-2">
-            ({rereadBooks.length} {rereadBooks.length === 1 ? 'book' : 'books'})
-          </span>
-        </h1>
-        <p className="text-gray-500 mt-2">
-          Books you've marked to reread in the future
-        </p>
-      </div>
-
       {rereadBooks.length === 0 ? (
         <div className="bg-orange-50 rounded-2xl p-8 text-center">
           <p className="text-gray-600 text-lg">
