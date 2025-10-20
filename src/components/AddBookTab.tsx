@@ -38,6 +38,9 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importQueue, setImportQueue] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showManualEntryModal, setShowManualEntryModal] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualAuthor, setManualAuthor] = useState("");
 
   const update = (field: string, value: any) =>
     setAddTabState((prev: any) => ({ ...prev, [field]: value }));
@@ -185,6 +188,27 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
     fileInputRef.current?.click();
   };
 
+  const handleManualAdd = () => {
+    if (!manualTitle.trim() || !manualAuthor.trim()) {
+      alert("Please enter both title and author");
+      return;
+    }
+    
+    const exists = allBooks.some(
+      (b: any) => b.title === manualTitle.trim() && b.author === manualAuthor.trim()
+    );
+    
+    if (exists) {
+      alert("This book is already in your collection");
+      return;
+    }
+    
+    setShowManualEntryModal(false);
+    openAddModal({ title: manualTitle.trim(), author: manualAuthor.trim() });
+    setManualTitle("");
+    setManualAuthor("");
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -312,6 +336,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
           }}
         />
         <Button onClick={handleSearch}>Search</Button>
+        <Button onClick={() => setShowManualEntryModal(true)} variant="secondary">Add Manually</Button>
         <Button onClick={handleImportClick} variant="secondary">Import CSV</Button>
         <input
           type="file"
@@ -347,6 +372,49 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
             </div>
           );
         })}
+
+      {showManualEntryModal && (
+        <Modal onClose={() => {
+          setShowManualEntryModal(false);
+          setManualTitle("");
+          setManualAuthor("");
+        }}>
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">Add Book Manually</h2>
+          <div className="mb-4">
+            <label className="block mb-2 font-medium text-gray-700">Book Title:</label>
+            <input
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+              placeholder="Enter book title..."
+              value={manualTitle}
+              onChange={(e) => setManualTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleManualAdd();
+                }
+              }}
+            />
+          </div>
+          <div className="mb-6">
+            <label className="block mb-2 font-medium text-gray-700">Author:</label>
+            <input
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+              placeholder="Enter author name..."
+              value={manualAuthor}
+              onChange={(e) => setManualAuthor(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleManualAdd();
+                }
+              }}
+            />
+          </div>
+          <Button onClick={handleManualAdd} className="w-full">
+            Continue
+          </Button>
+        </Modal>
+      )}
 
       {showAddModal && addingBook && (
         <Modal onClose={() => {
