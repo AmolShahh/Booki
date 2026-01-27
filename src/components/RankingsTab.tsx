@@ -16,6 +16,7 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
   const [editingBook, setEditingBook] = useState<any>(null);
   const [tagsInput, setTagsInput] = useState("");
   const [filterTag, setFilterTag] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [bookToDelete, setBookToDelete] = useState<any>(null);
 
   const handleEditTags = (book: any) => {
@@ -77,9 +78,17 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
   };
 
   const filteredBooks = (category: string) => {
-    return books[category]?.filter((b: any) =>
-      !filterTag || (b.tags || "").toLowerCase().includes(filterTag.toLowerCase())
-    ) || [];
+    const allBooksInCategory = books[category] || [];
+    return allBooksInCategory.map((book: any, index: number) => ({
+      ...book,
+      originalIndex: index,
+    })).filter((b: any) => {
+      const matchesTag = !filterTag || (b.tags || "").toLowerCase().includes(filterTag.toLowerCase());
+      const matchesSearch = !searchQuery || 
+        b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.author.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesTag && matchesSearch;
+    });
   };
 
   const getCategoryEmoji = (category: string) => {
@@ -111,7 +120,13 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
+        <input
+          placeholder="Search by book title or author..."
+          className="w-full px-5 py-3 rounded-full bg-white shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
         <input
           placeholder="Filter by tag..."
           className="w-full px-5 py-3 rounded-full bg-white shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
@@ -122,8 +137,9 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
 
       {CATEGORIES.map(cat => {
         const booksInCategory = filteredBooks(cat);
-        const startIndex = continuousBookNumber + 1;
-        continuousBookNumber += booksInCategory.length;
+        const totalBooksInCategory = books[cat]?.length || 0;
+        const startIndex = continuousBookNumber;
+        continuousBookNumber += totalBooksInCategory;
 
         return (
           <div key={cat} className="mb-8">
@@ -131,15 +147,19 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
               <span>{getCategoryEmoji(cat)}</span>
               <span className="capitalize">{cat}</span>
               <span className="text-sm font-normal text-gray-500 ml-2">
-                ({booksInCategory.length} books)
+                ({booksInCategory.length} of {totalBooksInCategory} books)
               </span>
             </h2>
             
-            {booksInCategory.length === 0 && (
+            {booksInCategory.length === 0 && totalBooksInCategory === 0 && (
               <p className="text-gray-400 italic p-4">No books in this category</p>
             )}
             
-            {booksInCategory.map((book: any, index: number) => (
+            {booksInCategory.length === 0 && totalBooksInCategory > 0 && (
+              <p className="text-gray-400 italic p-4">No books match your filters</p>
+            )}
+            
+            {booksInCategory.map((book: any) => (
               <div
                 key={book.id}
                 className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 hover:shadow-md hover:border-orange-200 transition-all duration-200"
@@ -150,7 +170,7 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-3">
                       <span className="text-2xl font-bold text-orange-500 mt-1 flex-shrink-0">
-                        {startIndex + index}
+                        {startIndex + book.originalIndex + 1}
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-800 text-lg break-words">{book.title}</p>
@@ -171,12 +191,12 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
                     </div>
                   </div>
                   
-                  {/* Buttons - stack on mobile, side by side on desktop */}
-                  <div className="flex gap-2 sm:flex-shrink-0 sm:ml-4 flex-wrap">
+                  {/* Buttons - stack vertically on desktop */}
+                  <div className="flex sm:flex-col gap-2 flex-wrap sm:flex-shrink-0 sm:ml-4 sm:min-w-[160px]">
                     <Button 
                       variant="secondary" 
                       onClick={() => handleReread(book)}
-                      className="text-sm flex-1 sm:flex-none"
+                      className="text-sm flex-1 sm:flex-none sm:w-full"
                       disabled={book.tags?.includes("to-reread")}
                     >
                       {book.tags?.includes("to-reread") ? "✓ To Reread" : "Reread"}
@@ -184,14 +204,14 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
                     <Button 
                       variant="secondary" 
                       onClick={() => handleEditTags(book)}
-                      className="text-sm flex-1 sm:flex-none"
+                      className="text-sm flex-1 sm:flex-none sm:w-full"
                     >
                       Edit Tags
                     </Button>
                     <Button 
                       variant="danger" 
                       onClick={() => setBookToDelete(book)}
-                      className="text-sm flex-1 sm:flex-none"
+                      className="text-sm flex-1 sm:flex-none sm:w-full"
                     >
                       Remove
                     </Button>
