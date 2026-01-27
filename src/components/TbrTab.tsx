@@ -395,9 +395,9 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
                   `}
                 >
                   {/* Mobile and Desktop responsive layout */}
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-                    {/* Book info section - full width on mobile */}
-                    <div className="flex-1 min-w-0">
+                  <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+                    {/* Book info section - takes more space on desktop */}
+                    <div className="flex-1 min-w-0 lg:max-w-[60%]">
                       <div className="flex items-start gap-3">
                         <span className="text-2xl font-bold text-orange-500 mt-1 flex-shrink-0">
                           {startIndex + index}
@@ -425,19 +425,19 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
                       </div>
                     </div>
                     
-                    {/* Buttons - stack on mobile, side by side on desktop */}
-                    <div className="flex gap-2 sm:flex-shrink-0 sm:ml-4 flex-wrap">
+                    {/* Buttons - better layout for desktop */}
+                    <div className="flex gap-2 sm:flex-shrink-0 sm:ml-4 flex-wrap lg:flex-nowrap">
                       <Button 
                         variant="success" 
                         onClick={() => handleMoveToRead(book)}
-                        className="text-sm flex-1 sm:flex-none"
+                        className="text-sm flex-1 sm:flex-none whitespace-nowrap"
                       >
                         Move to Read
                       </Button>
                       <Button 
                         variant="secondary" 
                         onClick={() => handleMarkCurrentlyReading(book)}
-                        className="text-sm flex-1 sm:flex-none"
+                        className="text-sm flex-1 sm:flex-none whitespace-nowrap"
                         disabled={book.tags?.includes("currently-reading")}
                       >
                         {book.tags?.includes("currently-reading") ? "✓ Reading" : "Currently Reading"}
@@ -445,14 +445,14 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
                       <Button 
                         variant="secondary" 
                         onClick={() => handleEditTags(book)}
-                        className="text-sm flex-1 sm:flex-none"
+                        className="text-sm flex-1 sm:flex-none whitespace-nowrap"
                       >
                         Edit Tags
                       </Button>
                       <Button 
                         variant="danger" 
                         onClick={() => setBookToDelete(book)}
-                        className="text-sm flex-1 sm:flex-none"
+                        className="text-sm flex-1 sm:flex-none whitespace-nowrap"
                       >
                         Remove
                       </Button>
