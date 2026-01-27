@@ -68,17 +68,20 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     }
   };
 
-  // New function: Mark as currently reading
+  // New function: Toggle currently reading tag
   const handleMarkCurrentlyReading = async (book: any) => {
     try {
       const currentTags = book.tags || "";
       const tagsArray = currentTags.split(",").map((t: string) => t.trim()).filter(Boolean);
       
+      let newTags: string;
       if (tagsArray.includes("currently-reading")) {
-        return; // Already has the tag
+        // Remove the tag
+        newTags = tagsArray.filter((t: string) => t !== "currently-reading").join(", ");
+      } else {
+        // Add the tag
+        newTags = [...tagsArray, "currently-reading"].join(", ");
       }
-      
-      const newTags = [...tagsArray, "currently-reading"].join(", ");
       
       await axios.put(`${API}/books/${book.id}`, { tags: newTags });
       const updatedBooks = { ...books };
@@ -87,7 +90,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       );
       setBooks(updatedBooks);
     } catch (error) {
-      console.error("Error adding currently-reading tag:", error);
+      console.error("Error toggling currently-reading tag:", error);
     }
   };
 
@@ -438,7 +441,6 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
                         variant="secondary" 
                         onClick={() => handleMarkCurrentlyReading(book)}
                         className="text-sm flex-1 sm:flex-none sm:w-full whitespace-nowrap"
-                        disabled={book.tags?.includes("currently-reading")}
                       >
                         {book.tags?.includes("currently-reading") ? "✓ Reading" : "Currently Reading"}
                       </Button>
