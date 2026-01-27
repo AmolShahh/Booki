@@ -31,7 +31,6 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
   const [low, setLow] = useState(0);
   const [high, setHigh] = useState(0);
   const [midIndex, setMidIndex] = useState(0);
-  const [isComparing, setIsComparing] = useState(false);
 
   const handleEditTags = (book: any) => {
     setEditingBook(book);
@@ -140,7 +139,6 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       setLow(0);
       setHigh(arr.length);
       setMidIndex(Math.floor(arr.length / 2));
-      setIsComparing(true);
       setShowComparisonModal(true);
     }
   };
@@ -175,7 +173,6 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       setHigh(0);
       setMidIndex(0);
       setShowComparisonModal(false);
-      setIsComparing(false);
       return;
     }
 
@@ -528,7 +525,6 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         <Modal
           onClose={() => {
             setShowComparisonModal(false);
-            setIsComparing(false);
             setMovingBook(null);
             setLow(0);
             setHigh(0);
