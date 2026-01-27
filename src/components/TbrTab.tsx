@@ -10,15 +10,28 @@ interface TbrTabProps {
 }
 
 const CATEGORIES = ["tbr"];
+const RANKING_CATEGORIES = ["liked it", "it was ok", "didn't like it"];
 const API = "https://booki-2od.pages.dev/api";
 
 const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
   const [editingBook, setEditingBook] = useState<any>(null);
   const [tagsInput, setTagsInput] = useState("");
   const [filterTag, setFilterTag] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [bookToDelete, setBookToDelete] = useState<any>(null);
   const [draggedItem, setDraggedItem] = useState<any>(null);
   const [scrollInterval, setScrollInterval] = useState<number | null>(null);
+  
+  // New state for moving book to read
+  const [movingBook, setMovingBook] = useState<any>(null);
+  const [selectedCategory, setSelectedCategory] = useState("liked it");
+  const [moveTagsInput, setMoveTagsInput] = useState("");
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [low, setLow] = useState(0);
+  const [high, setHigh] = useState(0);
+  const [midIndex, setMidIndex] = useState(0);
+  const [isComparing, setIsComparing] = useState(false);
 
   const handleEditTags = (book: any) => {
     setEditingBook(book);
@@ -56,10 +69,137 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     }
   };
 
+  // New function: Mark as currently reading
+  const handleMarkCurrentlyReading = async (book: any) => {
+    try {
+      const currentTags = book.tags || "";
+      const tagsArray = currentTags.split(",").map((t: string) => t.trim()).filter(Boolean);
+      
+      if (tagsArray.includes("currently-reading")) {
+        return; // Already has the tag
+      }
+      
+      const newTags = [...tagsArray, "currently-reading"].join(", ");
+      
+      await axios.put(`${API}/books/${book.id}`, { tags: newTags });
+      const updatedBooks = { ...books };
+      updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
+        b.id === book.id ? { ...b, tags: newTags } : b
+      );
+      setBooks(updatedBooks);
+    } catch (error) {
+      console.error("Error adding currently-reading tag:", error);
+    }
+  };
+
+  // New function: Initiate move to read
+  const handleMoveToRead = (book: any) => {
+    setMovingBook(book);
+    setSelectedCategory(RANKING_CATEGORIES[0]);
+    setMoveTagsInput(book.tags || "");
+    setShowMoveModal(true);
+  };
+
+  // New function: Confirm category selection and start comparison
+  const confirmMoveToRead = async () => {
+    if (!movingBook) return;
+
+    const arr = (books[selectedCategory] || []).filter(
+      (b: any) => !(b.title === movingBook.title && b.author === movingBook.author)
+    );
+
+    // First, delete from TBR
+    try {
+      await axios.delete(`${API}/books/${movingBook.id}`);
+    } catch (error) {
+      console.error("Error deleting from TBR:", error);
+      return;
+    }
+
+    // Update local state to remove from TBR
+    const updatedBooks = { ...books };
+    updatedBooks.tbr = updatedBooks.tbr.filter((b: any) => b.id !== movingBook.id);
+    setBooks(updatedBooks);
+
+    // If the category is empty, add directly
+    if (arr.length === 0) {
+      const updated = [{ ...movingBook, tags: moveTagsInput, category: selectedCategory }];
+      setBooks({ ...updatedBooks, [selectedCategory]: updated });
+      await axios.post(`${API}/books`, {
+        title: movingBook.title,
+        author: movingBook.author,
+        category: selectedCategory,
+        position: 0,
+        tags: moveTagsInput,
+      });
+      setShowMoveModal(false);
+      setMovingBook(null);
+    } else {
+      // Start comparison process
+      setShowMoveModal(false);
+      setLow(0);
+      setHigh(arr.length);
+      setMidIndex(Math.floor(arr.length / 2));
+      setIsComparing(true);
+      setShowComparisonModal(true);
+    }
+  };
+
+  // New function: Handle comparison
+  const handleComparison = async (newBetter: boolean) => {
+    const arr = (books[selectedCategory] || []).filter(
+      (b: any) => !(b.title === movingBook.title && b.author === movingBook.author)
+    );
+
+    let newLow = low;
+    let newHigh = high;
+
+    if (newBetter) newHigh = midIndex;
+    else newLow = midIndex + 1;
+
+    if (newLow >= newHigh) {
+      const position = newLow;
+      const updated = [...arr];
+      updated.splice(position, 0, { ...movingBook, tags: moveTagsInput, category: selectedCategory });
+      setBooks({ ...books, [selectedCategory]: updated });
+      await axios.post(`${API}/books`, {
+        title: movingBook.title,
+        author: movingBook.author,
+        category: selectedCategory,
+        position,
+        tags: moveTagsInput,
+      });
+
+      setMovingBook(null);
+      setLow(0);
+      setHigh(0);
+      setMidIndex(0);
+      setShowComparisonModal(false);
+      setIsComparing(false);
+      return;
+    }
+
+    setLow(newLow);
+    setHigh(newHigh);
+    setMidIndex(Math.floor((newLow + newHigh) / 2));
+  };
+
+  const currentComparison = () => {
+    const arr = (books[selectedCategory] || []).filter(
+      (b: any) => !(b.title === movingBook.title && b.author === movingBook.author)
+    );
+    return arr[midIndex];
+  };
+
+  // Updated filter function to include search by title/author
   const filteredBooks = (category: string) => {
-    return books[category]?.filter((b: any) =>
-      !filterTag || (b.tags || "").toLowerCase().includes(filterTag.toLowerCase())
-    ) || [];
+    return books[category]?.filter((b: any) => {
+      const matchesTag = !filterTag || (b.tags || "").toLowerCase().includes(filterTag.toLowerCase());
+      const matchesSearch = !searchQuery || 
+        b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.author.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesTag && matchesSearch;
+    }) || [];
   };
 
   const getCategoryEmoji = (category: string) => {
@@ -84,8 +224,23 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     }
     setTagsInput(Array.from(newTags).join(", "));
   };
+
+  const handleMoveTagClick = (tag: string) => {
+    const currentTags = moveTagsInput
+      .split(",")
+      .map((t: string) => t.trim())
+      .filter(Boolean);
+    const newTags = new Set(currentTags);
+    if (newTags.has(tag)) {
+      newTags.delete(tag);
+    } else {
+      newTags.add(tag);
+    }
+    setMoveTagsInput(Array.from(newTags).join(", "));
+  };
   
   const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
+  const selectedMoveTags = moveTagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
 
   // --- Drag and Drop Handlers for "tbr" category ---
   const handleDragStart = (e: any, book: any) => {
@@ -192,7 +347,13 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
+        <input
+          placeholder="Search by book title or author..."
+          className="w-full px-5 py-3 rounded-full bg-white shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
         <input
           placeholder="Filter by tag..."
           className="w-full px-5 py-3 rounded-full bg-white shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
@@ -252,7 +413,11 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
                               {book.tags.split(",").map((tag: string, i: number) => (
                                 <span
                                   key={i}
-                                  className="bg-orange-100 text-orange-700 text-xs px-3 py-1 rounded-full font-medium"
+                                  className={`text-xs px-3 py-1 rounded-full font-medium ${
+                                    tag.trim() === "currently-reading"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-orange-100 text-orange-700"
+                                  }`}
                                 >
                                   {tag.trim()}
                                 </span>
@@ -264,7 +429,22 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
                     </div>
                     
                     {/* Buttons - stack on mobile, side by side on desktop */}
-                    <div className="flex gap-2 sm:flex-shrink-0 sm:ml-4">
+                    <div className="flex gap-2 sm:flex-shrink-0 sm:ml-4 flex-wrap">
+                      <Button 
+                        variant="success" 
+                        onClick={() => handleMoveToRead(book)}
+                        className="text-sm flex-1 sm:flex-none"
+                      >
+                        Move to Read
+                      </Button>
+                      <Button 
+                        variant="secondary" 
+                        onClick={() => handleMarkCurrentlyReading(book)}
+                        className="text-sm flex-1 sm:flex-none"
+                        disabled={book.tags?.includes("currently-reading")}
+                      >
+                        {book.tags?.includes("currently-reading") ? "✓ Reading" : "Currently Reading"}
+                      </Button>
                       <Button 
                         variant="secondary" 
                         onClick={() => handleEditTags(book)}
@@ -288,6 +468,106 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         );
       })}
 
+      {/* Move to Read Modal - Category Selection */}
+      {showMoveModal && movingBook && (
+        <Modal onClose={() => {
+          setShowMoveModal(false);
+          setMovingBook(null);
+        }}>
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">Move to Read</h2>
+          <div className="mb-4 p-4 rounded-xl bg-orange-50 border border-orange-200">
+            <p className="font-semibold text-gray-800">{movingBook.title}</p>
+            <p className="text-gray-500 mt-1">by {movingBook.author}</p>
+          </div>
+          <div className="mb-6">
+            <p className="mb-3 font-medium text-gray-700">Category:</p>
+            <div className="flex gap-2 flex-wrap">
+              {RANKING_CATEGORIES.map((c) => (
+                <Button
+                  key={c}
+                  onClick={() => setSelectedCategory(c)}
+                  variant={selectedCategory === c ? "primary" : "secondary"}
+                  className="text-sm"
+                >
+                  {c}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-6">
+            <p className="mb-2 font-medium text-gray-700">Tags (optional):</p>
+            <div className="mb-3">
+              <input
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                placeholder="Type new tags or click on existing ones..."
+                value={moveTagsInput}
+                onChange={(e) => setMoveTagsInput(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-2">
+              {allTags.map((tag) => (
+                <Button
+                  key={tag}
+                  onClick={() => handleMoveTagClick(tag)}
+                  variant={selectedMoveTags.includes(tag) ? "primary" : "secondary"}
+                  className="rounded-full px-3 py-1 text-xs whitespace-nowrap"
+                >
+                  {tag}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <Button onClick={confirmMoveToRead} className="w-full">
+            Confirm & Compare
+          </Button>
+        </Modal>
+      )}
+
+      {/* Comparison Modal */}
+      {showComparisonModal && currentComparison() && movingBook && (
+        <Modal
+          onClose={() => {
+            setShowComparisonModal(false);
+            setIsComparing(false);
+            setMovingBook(null);
+            setLow(0);
+            setHigh(0);
+            setMidIndex(0);
+          }}
+        >
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">
+            Which book did you like more?
+          </h2>
+          <div className="space-y-4 mb-6">
+            <div className="p-5 bg-gray-50 rounded-2xl border border-gray-200">
+              <p className="font-semibold text-gray-800">{currentComparison().title}</p>
+              <p className="text-gray-500 mt-1">by {currentComparison().author}</p>
+            </div>
+            <div className="p-5 bg-orange-50 rounded-2xl border border-orange-200">
+              <p className="font-semibold text-gray-800">{movingBook.title}</p>
+              <p className="text-gray-500 mt-1">by {movingBook.author}</p>
+            </div>
+          </div>
+          <div className="flex justify-between gap-3">
+            <Button
+              onClick={() => handleComparison(false)}
+              variant="secondary"
+              className="w-1/2"
+            >
+              First Book
+            </Button>
+            <Button
+              onClick={() => handleComparison(true)}
+              variant="primary"
+              className="w-1/2"
+            >
+              Second Book
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Edit Tags Modal */}
       {editingBook && (
         <Modal onClose={() => setEditingBook(null)}>
           <h2 className="text-2xl font-bold mb-6 text-gray-800">Edit Tags</h2>
@@ -321,6 +601,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         </Modal>
       )}
 
+      {/* Delete Confirmation Modal */}
       {bookToDelete && (
         <Modal onClose={() => setBookToDelete(null)}>
           <h2 className="text-2xl font-bold mb-4 text-gray-800">Confirm Deletion</h2>
