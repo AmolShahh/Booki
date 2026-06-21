@@ -1,6 +1,10 @@
 import axios from "axios";
 
-const API = "https://booki-2od.pages.dev/api";
+// Shared API base URL — previously this was duplicated as a local
+// `const API = "..."` in every tab file. Centralizing it here means
+// changing environments (e.g. staging vs. production) only requires
+// editing one file.
+export const API = "https://booki-2od.pages.dev/api";
 
 export const searchBooks = (query: string) =>
   axios.get(`${API}/search?q=${encodeURIComponent(query)}`).then(res => res.data);
