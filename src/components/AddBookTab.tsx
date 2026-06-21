@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import Modal from "./Modal";
 import Button from "./Button";
+import { API } from "./api";
 
 interface AddBookTabProps {
   books: any;
@@ -12,15 +13,8 @@ interface AddBookTabProps {
 }
 
 const CATEGORIES = ["liked it", "it was ok", "didn't like it", "tbr"];
-const API = "https://booki-2od.pages.dev/api";
 
-const AddBookTab: React.FC<AddBookTabProps> = ({
-  books,
-  setBooks,
-  addTabState,
-  setAddTabState,
-  allTags,
-}) => {
+const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, setAddTabState, allTags }) => {
   const {
     query,
     results,
@@ -41,16 +35,25 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   const [showManualEntryModal, setShowManualEntryModal] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualAuthor, setManualAuthor] = useState("");
+  const [manualError, setManualError] = useState("");
+  const [csvError, setCsvError] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
-  const update = (field: string, value: any) =>
-    setAddTabState((prev: any) => ({ ...prev, [field]: value }));
+  const update = (field: string, value: any) => setAddTabState((prev: any) => ({ ...prev, [field]: value }));
 
   const allBooks = Object.values(books).flat();
 
   const handleSearch = async () => {
     if (!query) return;
-    const res = await axios.get(`${API}/search?q=${encodeURIComponent(query)}`);
-    update("results", res.data.results || []);
+    setIsSearching(true);
+    try {
+      const res = await axios.get(`${API}/search?q=${encodeURIComponent(query)}`);
+      update("results", res.data.results || []);
+    } catch (error) {
+      console.error("Error searching books:", error);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const openAddModal = (book: any) => {
@@ -190,19 +193,18 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
 
   const handleManualAdd = () => {
     if (!manualTitle.trim() || !manualAuthor.trim()) {
-      alert("Please enter both title and author");
+      setManualError("Please enter both a title and an author.");
       return;
     }
-    
-    const exists = allBooks.some(
-      (b: any) => b.title === manualTitle.trim() && b.author === manualAuthor.trim()
-    );
-    
+
+    const exists = allBooks.some((b: any) => b.title === manualTitle.trim() && b.author === manualAuthor.trim());
+
     if (exists) {
-      alert("This book is already in your collection");
+      setManualError("This book is already in your collection.");
       return;
     }
-    
+
+    setManualError("");
     setShowManualEntryModal(false);
     openAddModal({ title: manualTitle.trim(), author: manualAuthor.trim() });
     setManualTitle("");
@@ -210,6 +212,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCsvError("");
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -222,89 +225,85 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
   };
 
   const parseGoodreadsCsv = (csvText: string) => {
-    const lines = csvText.split('\n');
-    const headers = lines[0].split(',').map(header => header.trim().replace(/"/g, ''));
-    const titleIndex = headers.indexOf('Title');
-    const authorIndex = headers.indexOf('Author');
-    const myRatingIndex = headers.indexOf('My Rating');
-    const shelfIndex = headers.indexOf('Exclusive Shelf');
-    const readCountIndex = headers.indexOf('Read Count');
+    const lines = csvText.split("\n");
+    const headers = lines[0].split(",").map((header) => header.trim().replace(/"/g, ""));
+    const titleIndex = headers.indexOf("Title");
+    const authorIndex = headers.indexOf("Author");
+    const myRatingIndex = headers.indexOf("My Rating");
+    const shelfIndex = headers.indexOf("Exclusive Shelf");
+    const readCountIndex = headers.indexOf("Read Count");
 
     if (titleIndex === -1 || authorIndex === -1 || myRatingIndex === -1 || shelfIndex === -1) {
-      alert("Invalid Goodreads CSV file. Missing required columns (Title, Author, My Rating, Exclusive Shelf).");
+      setCsvError("Invalid Goodreads CSV file. Missing required columns (Title, Author, My Rating, Exclusive Shelf).");
       return;
     }
 
-    const newBooks = lines.slice(1).map(line => {
-      if (!line.trim()) return null;
+    const newBooks = lines
+      .slice(1)
+      .map((line) => {
+        if (!line.trim()) return null;
 
-      const cols : any = [];
-      let inQuote = false;
-      let col = "";
-      for (const char of line) {
+        const cols: any = [];
+        let inQuote = false;
+        let col = "";
+        for (const char of line) {
           if (char === '"') {
-              inQuote = !inQuote;
-          } else if (char === ',' && !inQuote) {
-              cols.push(col.trim().replace(/"/g, ''));
-              col = "";
+            inQuote = !inQuote;
+          } else if (char === "," && !inQuote) {
+            cols.push(col.trim().replace(/"/g, ""));
+            col = "";
           } else {
-              col += char;
+            col += char;
           }
-      }
-      cols.push(col.trim().replace(/"/g, ''));
-
-      if (cols.length <= Math.max(titleIndex, authorIndex, myRatingIndex, shelfIndex, readCountIndex)) {
-        return null;
-      }
-
-      const getCol = (index: number) => cols[index] || '';
-
-      const title = getCol(titleIndex);
-      const author = getCol(authorIndex);
-      const rating = parseInt(getCol(myRatingIndex), 10);
-      const shelf = getCol(shelfIndex);
-      const readCount = readCountIndex !== -1 ? parseInt(getCol(readCountIndex), 10) : 1;
-
-      let category = "";
-      if (shelf === "to-read") {
-        category = "tbr";
-      } else {
-        if (rating >= 4) {
-          category = "liked it";
-        } else if (rating === 3) {
-          category = "it was ok";
-        } else if (rating > 0) {
-          category = "didn't like it";
         }
-      }
+        cols.push(col.trim().replace(/"/g, ""));
 
-      return { title, author, category, rating, readCount };
-    }).filter(Boolean);
+        if (cols.length <= Math.max(titleIndex, authorIndex, myRatingIndex, shelfIndex, readCountIndex)) {
+          return null;
+        }
+
+        const getCol = (index: number) => cols[index] || "";
+
+        const title = getCol(titleIndex);
+        const author = getCol(authorIndex);
+        const rating = parseInt(getCol(myRatingIndex), 10);
+        const shelf = getCol(shelfIndex);
+        const readCount = readCountIndex !== -1 ? parseInt(getCol(readCountIndex), 10) : 1;
+
+        let category = "";
+        if (shelf === "to-read") {
+          category = "tbr";
+        } else {
+          if (rating >= 4) {
+            category = "liked it";
+          } else if (rating === 3) {
+            category = "it was ok";
+          } else if (rating > 0) {
+            category = "didn't like it";
+          }
+        }
+
+        return { title, author, category, rating, readCount };
+      })
+      .filter(Boolean);
 
     const uniqueNewBooks = newBooks.filter((book) => {
       return !allBooks.some(
-        (existingBook: any) =>
-          existingBook.title === book?.title && existingBook.author === book?.author
+        (existingBook: any) => existingBook.title === book?.title && existingBook.author === book?.author
       );
     });
 
     setImportQueue(uniqueNewBooks);
-    
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
   useEffect(() => {
-    if (
-      importQueue.length > 0 &&
-      !isProcessing &&
-      !addTabState.showAddModal &&
-      !addTabState.showComparisonModal &&
-      !addTabState.addingBook
-    ) {
+    if (importQueue.length > 0 && !isProcessing && !addTabState.showAddModal && !addTabState.showComparisonModal && !addTabState.addingBook) {
       const nextBook = importQueue[0];
-      
+
       update("addingBook", {
         title: nextBook.title,
         author: nextBook.author,
@@ -322,9 +321,22 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
 
   return (
     <div>
-      <div className="flex mb-6 gap-3">
+      {csvError && (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+          <span>{csvError}</span>
+          <button
+            onClick={() => setCsvError("")}
+            aria-label="Dismiss"
+            className="flex-none text-rose-400 transition-colors hover:text-rose-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <div className="mb-6 flex flex-wrap gap-3">
         <input
-          className="flex-1 px-5 py-3 rounded-full bg-white shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all"
+          className="min-w-[200px] flex-1 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 shadow-sm transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           placeholder="Search for a book..."
           value={query}
           onChange={(e) => update("query", e.target.value)}
@@ -335,37 +347,36 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
             }
           }}
         />
-        <Button onClick={handleSearch}>Search</Button>
-        <Button onClick={() => setShowManualEntryModal(true)} variant="secondary">Add Manually</Button>
-        <Button onClick={handleImportClick} variant="secondary">Import CSV</Button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept=".csv"
-          style={{ display: 'none' }}
-        />
+        <Button onClick={handleSearch} disabled={isSearching}>
+          {isSearching ? "Searching..." : "Search"}
+        </Button>
+        <Button onClick={() => setShowManualEntryModal(true)} variant="secondary">
+          Add Manually
+        </Button>
+        <Button onClick={handleImportClick} variant="secondary">
+          Import CSV
+        </Button>
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" style={{ display: "none" }} />
       </div>
 
       {!isComparing &&
         results.map((book: any, i: number) => {
-          const exists = allBooks.some(
-            (b: any) => b.title === book.title && b.author === book.author
-          );
+          const exists = allBooks.some((b: any) => b.title === book.title && b.author === book.author);
           return (
             <div
               key={`${book.title}-${book.author}-${i}`}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-3 flex justify-between items-center hover:shadow-md hover:border-orange-200 transition-all duration-200"
+              className="mb-3 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 transition-colors duration-150 hover:border-zinc-700"
             >
-              <div>
-                <p className="font-semibold text-gray-800 text-lg">{book.title}</p>
-                <p className="text-gray-500 mt-1">{book.author}</p>
+              <div className="min-w-0">
+                <p className="break-words text-base font-medium text-zinc-100">{book.title}</p>
+                <p className="mt-0.5 text-sm text-zinc-500">{book.author}</p>
               </div>
               <Button
                 onClick={() => openAddModal(book)}
                 disabled={exists}
                 variant={exists ? "secondary" : "primary"}
-                className="ml-4"
+                size="sm"
+                className="ml-4 flex-none"
               >
                 {exists ? "Added" : "Add +"}
               </Button>
@@ -374,19 +385,25 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
         })}
 
       {showManualEntryModal && (
-        <Modal onClose={() => {
-          setShowManualEntryModal(false);
-          setManualTitle("");
-          setManualAuthor("");
-        }}>
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Add Book Manually</h2>
+        <Modal
+          onClose={() => {
+            setShowManualEntryModal(false);
+            setManualTitle("");
+            setManualAuthor("");
+            setManualError("");
+          }}
+        >
+          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-100">Add Book Manually</h2>
           <div className="mb-4">
-            <label className="block mb-2 font-medium text-gray-700">Book Title:</label>
+            <label className="mb-2 block text-sm font-medium text-zinc-300">Book Title</label>
             <input
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
               placeholder="Enter book title..."
               value={manualTitle}
-              onChange={(e) => setManualTitle(e.target.value)}
+              onChange={(e) => {
+                setManualTitle(e.target.value);
+                if (manualError) setManualError("");
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -395,13 +412,16 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
               }}
             />
           </div>
-          <div className="mb-6">
-            <label className="block mb-2 font-medium text-gray-700">Author:</label>
+          <div className="mb-2">
+            <label className="mb-2 block text-sm font-medium text-zinc-300">Author</label>
             <input
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
               placeholder="Enter author name..."
               value={manualAuthor}
-              onChange={(e) => setManualAuthor(e.target.value)}
+              onChange={(e) => {
+                setManualAuthor(e.target.value);
+                if (manualError) setManualError("");
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -410,47 +430,46 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
               }}
             />
           </div>
-          <Button onClick={handleManualAdd} className="w-full">
+          {manualError && <p className="mb-4 text-sm text-rose-400">{manualError}</p>}
+          <Button onClick={handleManualAdd} className="mt-4 w-full">
             Continue
           </Button>
         </Modal>
       )}
 
       {showAddModal && addingBook && (
-        <Modal onClose={() => {
-          setAddTabState((prev: any) => ({
-            ...prev,
-            showAddModal: false,
-            addingBook: null,
-            isComparing: false,
-            showComparisonModal: false,
-          }));
-          setIsProcessing(false);
-        }}>
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Add Book</h2>
-          <div className="mb-4 p-4 rounded-xl bg-orange-50 border border-orange-200">
-            <p className="font-semibold text-gray-800">{addingBook.title}</p>
-            <p className="text-gray-500 mt-1">by {addingBook.author}</p>
+        <Modal
+          onClose={() => {
+            setAddTabState((prev: any) => ({
+              ...prev,
+              showAddModal: false,
+              addingBook: null,
+              isComparing: false,
+              showComparisonModal: false,
+            }));
+            setIsProcessing(false);
+          }}
+        >
+          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-100">Add Book</h2>
+          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+            <p className="font-medium text-zinc-100">{addingBook.title}</p>
+            <p className="mt-1 text-sm text-zinc-400">by {addingBook.author}</p>
             {addingBook.rating > 0 && (
-              <p className="text-sm font-medium text-orange-600 mt-2">
-                Goodreads Rating: {addingBook.rating} / 5
-              </p>
+              <p className="mt-2 text-sm font-medium text-amber-400">Goodreads Rating: {addingBook.rating} / 5</p>
             )}
             {addingBook.readCount > 1 && (
-              <p className="text-sm font-medium text-orange-600 mt-1">
-                Read Count: {addingBook.readCount}
-              </p>
+              <p className="mt-1 text-sm font-medium text-amber-400">Read Count: {addingBook.readCount}</p>
             )}
           </div>
           <div className="mb-6">
-            <p className="mb-3 font-medium text-gray-700">Category:</p>
-            <div className="flex gap-2 flex-wrap">
+            <p className="mb-3 text-sm font-medium text-zinc-300">Category:</p>
+            <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((c) => (
                 <Button
                   key={c}
                   onClick={() => update("selectedCategory", c)}
                   variant={selectedCategory === c ? "primary" : "secondary"}
-                  className="text-sm"
+                  size="sm"
                 >
                   {c}
                 </Button>
@@ -458,30 +477,25 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
             </div>
           </div>
           <div className="mb-6">
-            <p className="mb-2 font-medium text-gray-700">Tags (optional):</p>
+            <p className="mb-2 text-sm font-medium text-zinc-300">Tags (optional):</p>
             <div className="mb-3">
               <input
-                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                 placeholder="Type new tags or click on existing ones..."
                 value={tagsInput}
                 onChange={(e) => update("tagsInput", e.target.value)}
               />
             </div>
-            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-2">
+            <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto pr-2">
               {allTags.map((tag) => (
-                <Button
-                  key={tag}
-                  onClick={() => handleTagClick(tag)}
-                  variant={selectedTags.includes(tag) ? "primary" : "secondary"}
-                  className="rounded-full px-3 py-1 text-xs whitespace-nowrap"
-                >
+                <Button key={tag} onClick={() => handleTagClick(tag)} variant="tag" active={selectedTags.includes(tag)}>
                   {tag}
                 </Button>
               ))}
             </div>
           </div>
-          <Button onClick={confirmAddBook} className="w-full">
-            Add & Compare
+          <Button onClick={confirmAddBook} disabled={isProcessing} className="w-full">
+            {isProcessing ? "Adding..." : "Add & Compare"}
           </Button>
         </Modal>
       )}
@@ -501,32 +515,22 @@ const AddBookTab: React.FC<AddBookTabProps> = ({
             setIsProcessing(false);
           }}
         >
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">
-            Which book did you like more?
-          </h2>
-          <div className="space-y-4 mb-6">
-            <div className="p-5 bg-gray-50 rounded-2xl border border-gray-200">
-              <p className="font-semibold text-gray-800">{currentComparison().title}</p>
-              <p className="text-gray-500 mt-1">by {currentComparison().author}</p>
+          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-100">Which book did you like more?</h2>
+          <div className="mb-6 space-y-3">
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-5">
+              <p className="font-medium text-zinc-100">{currentComparison().title}</p>
+              <p className="mt-1 text-sm text-zinc-500">by {currentComparison().author}</p>
             </div>
-            <div className="p-5 bg-orange-50 rounded-2xl border border-orange-200">
-              <p className="font-semibold text-gray-800">{addingBook.title}</p>
-              <p className="text-gray-500 mt-1">by {addingBook.author}</p>
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
+              <p className="font-medium text-zinc-100">{addingBook.title}</p>
+              <p className="mt-1 text-sm text-zinc-400">by {addingBook.author}</p>
             </div>
           </div>
-          <div className="flex justify-between gap-3">
-            <Button
-              onClick={() => handleComparison(false)}
-              variant="secondary"
-              className="w-1/2"
-            >
+          <div className="flex gap-3">
+            <Button onClick={() => handleComparison(false)} variant="secondary" disabled={isProcessing} className="w-1/2">
               First Book
             </Button>
-            <Button
-              onClick={() => handleComparison(true)}
-              variant="primary"
-              className="w-1/2"
-            >
+            <Button onClick={() => handleComparison(true)} variant="primary" disabled={isProcessing} className="w-1/2">
               Second Book
             </Button>
           </div>

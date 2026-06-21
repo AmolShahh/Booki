@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 interface ModalProps {
   children: React.ReactNode;
@@ -6,12 +6,38 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ children, onClose }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Usability: close on Escape, like every other modal on the web.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  // Usability: click the dimmed backdrop to dismiss, without closing when
+  // clicking inside the card itself.
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (contentRef.current && !contentRef.current.contains(e.target as Node)) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-      <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full relative transform transition-all animate-slideUp">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn"
+    >
+      <div
+        ref={contentRef}
+        className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-800 p-7 shadow-2xl shadow-black/50 animate-slideUp"
+      >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+          aria-label="Close"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-700/60 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
         >
           ✕
         </button>

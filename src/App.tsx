@@ -5,8 +5,7 @@ import RankingsTab from "./components/RankingsTab";
 import TbrTab from "./components/TbrTab";
 import RereadTab from "./components/RereadTab";
 import TabButton from "./components/TabButton";
-
-const API = "https://booki-2od.pages.dev/api";
+import { API } from "./components/api";
 
 const App: React.FC = () => {
   const [books, setBooks] = useState<any>({});
@@ -60,38 +59,26 @@ const App: React.FC = () => {
   }, [books]);
 
   return (
-    <div className="min-h-screen bg-orange-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-center text-gray-800">
-          <span className="text-orange-500">📚</span> Booki
-        </h1>
+    <div className="min-h-screen bg-zinc-900 p-6 text-zinc-100 sm:p-10">
+      <div className="mx-auto max-w-4xl">
+        <header className="mb-10 text-center">
+          <div className="mb-3 inline-flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            <span className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">Reading Log</span>
+          </div>
+          <h1 className="font-serif text-4xl font-semibold text-zinc-100">Booki</h1>
+        </header>
 
         {/* Tabs */}
-        <div className="flex justify-center mb-8 gap-2 flex-wrap">
-          <TabButton
-            label="Add Book"
-            isActive={activeTab === "add"}
-            onClick={() => setActiveTab("add")}
-          />
-          <TabButton
-            label="Rankings"
-            isActive={activeTab === "rankings"}
-            onClick={() => setActiveTab("rankings")}
-          />
-          <TabButton
-            label="TBR"
-            isActive={activeTab === "tbr"}
-            onClick={() => setActiveTab("tbr")}
-          />
-          <TabButton
-            label="To Reread"
-            isActive={activeTab === "reread"}
-            onClick={() => setActiveTab("reread")}
-          />
+        <div className="mb-10 flex flex-wrap justify-center gap-1 border-b border-zinc-800">
+          <TabButton label="Add Book" isActive={activeTab === "add"} onClick={() => setActiveTab("add")} />
+          <TabButton label="Rankings" isActive={activeTab === "rankings"} onClick={() => setActiveTab("rankings")} />
+          <TabButton label="TBR" isActive={activeTab === "tbr"} onClick={() => setActiveTab("tbr")} />
+          <TabButton label="To Reread" isActive={activeTab === "reread"} onClick={() => setActiveTab("reread")} />
         </div>
 
         {/* Tab content */}
-        <div className="max-w-2xl mx-auto">
+        <div className="mx-auto max-w-2xl">
           {activeTab === "add" && (
             <AddBookTab
               books={books}
@@ -101,15 +88,9 @@ const App: React.FC = () => {
               allTags={allTags}
             />
           )}
-          {activeTab === "rankings" && (
-            <RankingsTab books={books} setBooks={setBooks} allTags={allTags} />
-          )}
-          {activeTab === "tbr" && (
-            <TbrTab books={books} setBooks={setBooks} allTags={allTags} />
-          )}
-          {activeTab === "reread" && (
-            <RereadTab books={books} setBooks={setBooks} allTags={allTags} />
-          )}
+          {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} allTags={allTags} />}
+          {activeTab === "tbr" && <TbrTab books={books} setBooks={setBooks} allTags={allTags} />}
+          {activeTab === "reread" && <RereadTab books={books} setBooks={setBooks} allTags={allTags} />}
         </div>
       </div>
     </div>
