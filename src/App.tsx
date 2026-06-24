@@ -5,9 +5,16 @@ import RankingsTab from "./components/RankingsTab";
 import TbrTab from "./components/TbrTab";
 import RereadTab from "./components/RereadTab";
 import TabButton from "./components/TabButton";
+import PublicView from "./components/PublicView";
 import { API } from "./components/api";
 
 const App: React.FC = () => {
+  // Serve the read-only public view at /public — no auth, no edit controls.
+  // Share yourdomain.pages.dev/public with anyone.
+  if (window.location.pathname === "/public") {
+    return <PublicView />;
+  }
+
   const [books, setBooks] = useState<any>({});
   const [activeTab, setActiveTab] = useState<"add" | "rankings" | "tbr" | "reread">("add");
 
