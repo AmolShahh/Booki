@@ -63,7 +63,7 @@ const App: React.FC = () => {
             <span className="h-2 w-2 rounded-full bg-amber-400" />
             <span className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">Reading Log</span>
           </div>
-          <h1 className="font-serif text-4xl font-semibold text-zinc-50">Booki</h1>
+          <h1 className="font-serif text-4xl font-semibold text-white drop-shadow-[0_0_20px_rgba(251,191,36,0.3)]">Booki</h1>
         </header>
 
         {/* Tab bar */}
