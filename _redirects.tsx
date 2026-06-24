@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import AddBookTab from "./components/AddBookTab";
-import RankingsTab from "./components/RankingsTab";
-import TbrTab from "./components/TbrTab";
-import RereadTab from "./components/RereadTab";
-import TabButton from "./components/TabButton";
-import PublicView from "./components/PublicView";
-import { API } from "./components/api";
+import AddBookTab from "./src/components/AddBookTab";
+import RankingsTab from "./src/components/RankingsTab";
+import TbrTab from "./src/components/TbrTab";
+import RereadTab from "./src/components/RereadTab";
+import TabButton from "./src/components/TabButton";
+import PublicView from "./src/components/PublicView";
+import { API } from "./src/components/api";
 
 const App: React.FC = () => {
   // Serve the read-only public view at /public — no auth, no edit controls.
