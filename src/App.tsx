@@ -38,7 +38,6 @@ const App: React.FC = () => {
     fetchBooks();
   }, []);
 
-  // Generate a list of all unique tags from the 'books' state
   const allTags = useMemo(() => {
     const uniqueTags = new Set<string>();
     Object.values(books).forEach((categoryBooks) => {
@@ -47,9 +46,7 @@ const App: React.FC = () => {
           if (book.tags) {
             book.tags.split(",").forEach((tag: string) => {
               const trimmedTag = tag.trim();
-              if (trimmedTag) {
-                uniqueTags.add(trimmedTag.toLowerCase());
-              }
+              if (trimmedTag) uniqueTags.add(trimmedTag.toLowerCase());
             });
           }
         });
@@ -59,18 +56,18 @@ const App: React.FC = () => {
   }, [books]);
 
   return (
-    <div className="min-h-screen bg-zinc-900 p-6 text-zinc-100 sm:p-10">
+    <div className="min-h-screen bg-zinc-950 p-6 text-zinc-100 sm:p-10">
       <div className="mx-auto max-w-4xl">
         <header className="mb-10 text-center">
           <div className="mb-3 inline-flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-amber-400" />
             <span className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">Reading Log</span>
           </div>
-          <h1 className="font-serif text-4xl font-semibold text-zinc-100">Booki</h1>
+          <h1 className="font-serif text-4xl font-semibold text-zinc-50">Booki</h1>
         </header>
 
-        {/* Tabs */}
-        <div className="mb-10 flex flex-wrap justify-center gap-1 border-b border-zinc-800">
+        {/* Tab bar */}
+        <div className="mb-10 flex flex-wrap justify-center gap-1 border-b border-zinc-700">
           <TabButton label="Add Book" isActive={activeTab === "add"} onClick={() => setActiveTab("add")} />
           <TabButton label="Rankings" isActive={activeTab === "rankings"} onClick={() => setActiveTab("rankings")} />
           <TabButton label="TBR" isActive={activeTab === "tbr"} onClick={() => setActiveTab("tbr")} />
@@ -80,13 +77,7 @@ const App: React.FC = () => {
         {/* Tab content */}
         <div className="mx-auto max-w-2xl">
           {activeTab === "add" && (
-            <AddBookTab
-              books={books}
-              setBooks={setBooks}
-              addTabState={addTabState}
-              setAddTabState={setAddTabState}
-              allTags={allTags}
-            />
+            <AddBookTab books={books} setBooks={setBooks} addTabState={addTabState} setAddTabState={setAddTabState} allTags={allTags} />
           )}
           {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} allTags={allTags} />}
           {activeTab === "tbr" && <TbrTab books={books} setBooks={setBooks} allTags={allTags} />}

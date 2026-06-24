@@ -13,9 +13,9 @@ interface RereadTabProps {
 const CATEGORIES = ["liked it", "it was ok", "didn't like it"];
 
 const CATEGORY_DOT: Record<string, string> = {
-  "liked it": "bg-emerald-500",
-  "it was ok": "bg-amber-500",
-  "didn't like it": "bg-rose-500",
+  "liked it": "bg-emerald-400",
+  "it was ok": "bg-amber-400",
+  "didn't like it": "bg-rose-400",
 };
 
 const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
@@ -74,7 +74,6 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
       const currentTags = book.tags || "";
       const tagsArray = currentTags.split(",").map((t: string) => t.trim()).filter(Boolean);
       const newTags = tagsArray.filter((t: string) => t !== "to-reread").join(", ");
-
       await axios.put(`${API}/books/${book.id}`, { tags: newTags });
       const updatedBooks = { ...books };
       updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
@@ -88,7 +87,6 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
     }
   };
 
-  // Get all books with "to-reread" tag
   const getRereadBooks = () => {
     const rereadBooks: any[] = [];
     CATEGORIES.forEach((category) => {
@@ -104,29 +102,22 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
   };
 
   const handleTagClick = (tag: string) => {
-    const currentTags = tagsInput
-      .split(",")
-      .map((t: string) => t.trim())
-      .filter(Boolean);
+    const currentTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
     const newTags = new Set(currentTags);
-    if (newTags.has(tag)) {
-      newTags.delete(tag);
-    } else {
-      newTags.add(tag);
-    }
+    if (newTags.has(tag)) newTags.delete(tag);
+    else newTags.add(tag);
     setTagsInput(Array.from(newTags).join(", "));
   };
 
   const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
-
   const rereadBooks = getRereadBooks();
 
   return (
     <div>
       {rereadBooks.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/40 p-8 text-center">
-          <p className="text-base font-medium text-zinc-300">No books marked for rereading yet</p>
-          <p className="mt-2 text-sm text-zinc-500">
+        <div className="rounded-2xl border border-dashed border-zinc-600 bg-zinc-800 p-8 text-center">
+          <p className="text-base font-medium text-zinc-200">No books marked for rereading yet</p>
+          <p className="mt-2 text-sm text-zinc-400">
             Click "Reread" on any book in the Rankings tab to add it here.
           </p>
         </div>
@@ -135,16 +126,16 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
           {rereadBooks.map((book: any) => (
             <div
               key={book.id}
-              className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 transition-colors duration-150 hover:border-zinc-700"
+              className="rounded-xl border border-zinc-600 bg-zinc-800 p-5 transition-colors duration-150 hover:border-zinc-500"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start gap-3">
                     <span className={`mt-2 h-2.5 w-2.5 flex-none rounded-full ${CATEGORY_DOT[book.category]}`} />
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-base font-medium text-zinc-100">{book.title}</p>
-                      <p className="mt-0.5 text-sm text-zinc-500">{book.author}</p>
-                      <p className="mt-1 text-xs capitalize text-zinc-600">Originally in: {book.category}</p>
+                      <p className="break-words text-base font-semibold text-zinc-50">{book.title}</p>
+                      <p className="mt-0.5 text-sm text-zinc-300">{book.author}</p>
+                      <p className="mt-1 text-xs capitalize text-zinc-500">Originally in: {book.category}</p>
                       {book.tags && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {book.tags.split(",").map((tag: string, i: number) => (
@@ -152,8 +143,8 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
                               key={i}
                               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                                 tag.trim() === "to-reread"
-                                  ? "border border-sky-500/30 bg-sky-500/15 text-sky-300"
-                                  : "border border-zinc-700 bg-zinc-800 text-zinc-400"
+                                  ? "border border-sky-500/40 bg-sky-500/20 text-sky-300"
+                                  : "border border-zinc-600 bg-zinc-700 text-zinc-300"
                               }`}
                             >
                               {tag.trim()}
@@ -173,7 +164,7 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
                     disabled={markingId === book.id}
                     className="flex-1 sm:flex-none"
                   >
-                    {markingId === book.id ? "Saving..." : "Mark as Read"}
+                    {markingId === book.id ? "Saving…" : "Mark as Read"}
                   </Button>
                   <Button
                     variant="secondary"
@@ -199,21 +190,16 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
       )}
 
       {editingBook && (
-        <Modal
-          onClose={() => {
-            setEditingBook(null);
-            setTagsInput("");
-          }}
-        >
-          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-100">Edit Tags</h2>
+        <Modal onClose={() => { setEditingBook(null); setTagsInput(""); }}>
+          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-50">Edit Tags</h2>
           <div className="mb-4">
             <p className="font-medium text-zinc-100">{editingBook.title}</p>
-            <p className="text-sm text-zinc-500">{editingBook.author}</p>
+            <p className="text-sm text-zinc-400">{editingBook.author}</p>
           </div>
           <div className="mb-5">
             <input
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              placeholder="Type new tags or click on existing ones..."
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              placeholder="Type new tags or click existing ones…"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
             />
@@ -226,24 +212,22 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags }) => {
             ))}
           </div>
           <Button onClick={handleSaveTags} disabled={isSaving} className="mt-6 w-full">
-            {isSaving ? "Saving..." : "Save Tags"}
+            {isSaving ? "Saving…" : "Save Tags"}
           </Button>
         </Modal>
       )}
 
       {bookToDelete && (
         <Modal onClose={() => setBookToDelete(null)}>
-          <h2 className="mb-4 font-serif text-xl font-semibold text-zinc-100">Remove book</h2>
-          <p className="mb-6 text-sm text-zinc-400">
+          <h2 className="mb-4 font-serif text-xl font-semibold text-zinc-50">Remove book</h2>
+          <p className="mb-6 text-sm text-zinc-300">
             Are you sure you want to remove "
-            <span className="font-medium text-zinc-200">{bookToDelete.title}</span>"? This action cannot be undone.
+            <span className="font-medium text-zinc-100">{bookToDelete.title}</span>"? This action cannot be undone.
           </p>
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setBookToDelete(null)} className="w-full">
-              Cancel
-            </Button>
+            <Button variant="secondary" onClick={() => setBookToDelete(null)} className="w-full">Cancel</Button>
             <Button variant="danger" onClick={confirmDelete} disabled={isDeleting} className="w-full">
-              {isDeleting ? "Removing..." : "Remove"}
+              {isDeleting ? "Removing…" : "Remove"}
             </Button>
           </div>
         </Modal>

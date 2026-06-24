@@ -25,12 +25,15 @@ const sizeStyles: Record<ButtonSize, string> = {
   md: "px-4 py-2 text-sm rounded-lg gap-2",
 };
 
+// Each variant sits one step lighter than the panel it's normally placed on
+// (cards and modals are zinc-800), so buttons read as distinctly raised
+// controls instead of blending into their container.
 const variantStyles: Record<Exclude<ButtonVariant, "tag">, string> = {
   primary: "bg-amber-500 text-zinc-950 hover:bg-amber-400 shadow-sm shadow-black/20",
-  secondary: "bg-zinc-800 text-zinc-200 border border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600",
+  secondary: "bg-zinc-700 text-zinc-100 border border-zinc-600 hover:bg-zinc-600 hover:border-zinc-500",
   success: "bg-emerald-600 text-white hover:bg-emerald-500",
   danger: "bg-rose-600 text-white hover:bg-rose-500",
-  ghost: "bg-transparent text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800",
+  ghost: "bg-transparent text-zinc-300 hover:text-zinc-50 hover:bg-zinc-700",
 };
 
 // "tag" is a distinct shape (small pill) used for the tag-toggle chips that
@@ -41,8 +44,8 @@ const variantStyles: Record<Exclude<ButtonVariant, "tag">, string> = {
 // order rather than markup order. Giving "tag" its own first-class variant
 // removes that footgun entirely.
 const tagStyles = {
-  active: "bg-amber-500/15 text-amber-300 border border-amber-500/40",
-  inactive: "bg-zinc-800/60 text-zinc-400 border border-zinc-700 hover:border-zinc-600 hover:text-zinc-200",
+  active: "bg-amber-500/20 text-amber-300 border border-amber-500/50",
+  inactive: "bg-zinc-700/70 text-zinc-300 border border-zinc-600 hover:border-zinc-500 hover:text-zinc-100",
 };
 
 const Button: React.FC<ButtonProps> = ({
