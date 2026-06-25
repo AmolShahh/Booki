@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 type Env = {
   DB: D1Database;
   API_SECRET: string;
+  GOOGLE_BOOKS_API_KEY: string;
 };
 
 type Book = {
@@ -121,8 +122,7 @@ app.get('/search', async (c) => {
   try {
     const query = c.req.query('q');
     if (!query) return c.json({ error: 'Query parameter required' }, 400);
-    const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10`);
-    if (!response.ok) throw new Error(`Google Books API returned ${response.status}`);
+const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&key=${c.env.GOOGLE_BOOKS_API_KEY}`);    if (!response.ok) throw new Error(`Google Books API returned ${response.status}`);
     const data = await response.json() as { items?: any[] };
     const results = (data.items || []).map((item: any) => {
       const v = item.volumeInfo || {};
