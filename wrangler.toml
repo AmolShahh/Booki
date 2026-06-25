@@ -8,4 +8,5 @@ database_name = "booki-books"
 database_id = "a9207241-ad31-4320-a386-8194f3c7033c"
 
 [vars]
-GOOGLE_BOOKS_API_KEY = "AIzaSyCxYQiDQe3ZSvE-7xNhkx8DRA4qVk-45y4"
+GOOGLE_BOOKS_API_KEY = ""
+API_SECRET = ""
