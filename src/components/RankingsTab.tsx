@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import axios from "axios";
 import Modal from "./Modal";
 import Button from "./Button";
 import { API, authAxios } from "./api";
