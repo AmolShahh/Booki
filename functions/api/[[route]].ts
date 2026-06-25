@@ -139,11 +139,29 @@ app.put('/reorder', async (c) => {
 });
 
 // GET /api/search
+// GET /api/search
 app.get('/search', async (c) => {
   try {
     const query = c.req.query('q');
     if (!query) return c.json({ error: 'Query parameter required' }, 400);
-    const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&key=${c.env.GOOGLE_BOOKS_API_KEY}`);    if (!response.ok) throw new Error(`Google Books API returned ${response.status}`);
+
+    const apiKey = c.env.GOOGLE_BOOKS_API_KEY?.trim();
+    
+    // 1. Guard check to see if Cloudflare actually passed the key
+    if (!apiKey) {
+      console.error("CRITICAL: GOOGLE_BOOKS_API_KEY is undefined or empty in Cloudflare bindings.");
+      return c.json({ error: 'Search is temporarily unavailable due to server configuration.' }, 500);
+    }
+
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&key=${apiKey}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Google Books API error raw response: ${errorText}`);
+      throw new Error(`Google Books API returned ${response.status}`);
+    }
+    
     const data = await response.json() as { items?: any[] };
     const results = (data.items || []).map((item: any) => {
       const v = item.volumeInfo || {};
@@ -153,6 +171,7 @@ app.get('/search', async (c) => {
         isbn: v.industryIdentifiers?.find((id: any) => id.type === 'ISBN_13' || id.type === 'ISBN_10')?.identifier || null,
       };
     });
+    
     return c.json({ results });
   } catch (error) {
     console.error('Search error:', error);
