@@ -27,7 +27,17 @@ const app = new Hono<{ Bindings: Env }>().basePath('/api');
 
 // CORS — also allow the x-api-key header
 app.use('/*', cors({
-  origin: ['https://booki-2od.pages.dev', 'https://*.booki-2od.pages.dev'],
+  origin: (origin) => {
+    // Allow localhost for local development, your main production URL, and any preview deployments
+    if (
+      origin === 'https://booki-2od.pages.dev' || 
+      origin.endsWith('.booki-2od.pages.dev') || 
+      origin.startsWith('http://localhost:')
+    ) {
+      return origin;
+    }
+    return ''; // Reject other origins
+  },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'x-api-key'],
   credentials: true,
@@ -122,8 +132,7 @@ app.get('/search', async (c) => {
   try {
     const query = c.req.query('q');
     if (!query) return c.json({ error: 'Query parameter required' }, 400);
-    console.log("API key present:", !!c.env.GOOGLE_BOOKS_API_KEY, "length:", c.env.GOOGLE_BOOKS_API_KEY?.length);
-const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&key=${c.env.GOOGLE_BOOKS_API_KEY}`);    if (!response.ok) throw new Error(`Google Books API returned ${response.status}`);
+    const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&key=${c.env.GOOGLE_BOOKS_API_KEY}`);    if (!response.ok) throw new Error(`Google Books API returned ${response.status}`);
     const data = await response.json() as { items?: any[] };
     const results = (data.items || []).map((item: any) => {
       const v = item.volumeInfo || {};
