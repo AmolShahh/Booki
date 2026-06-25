@@ -9,4 +9,3 @@ database_id = "a9207241-ad31-4320-a386-8194f3c7033c"
 
 [vars]
 GOOGLE_BOOKS_API_KEY = ""
-API_SECRET = ""
