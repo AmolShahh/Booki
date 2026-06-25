@@ -46,14 +46,25 @@ app.use('/*', cors({
 const API_CATEGORIES = ["liked it", "it was ok", "didn't like it", "tbr"];
 
 // Auth middleware — only protects mutating methods, GET stays open
-app.use('/*', async (c, next) => {
+app.use('*', async (c, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(c.req.method)) {
     const key = c.req.header('x-api-key');
-    if (!key || key !== c.env.API_SECRET) {
+    
+    if (!c.env.API_SECRET) {
+      console.error("CRITICAL: API_SECRET variable is completely missing or unbound in Cloudflare Settings.");
+      return c.json({ error: 'Server configuration error' }, 500);
+    }
+
+    // Use .trim() to bypass hidden Cloudflare dashboard formatting issues
+    const clientKey = key ? key.trim() : '';
+    const serverSecret = c.env.API_SECRET.trim();
+
+    if (!clientKey || clientKey !== serverSecret) {
+      console.error(`AUTH FAILED: Received length ${clientKey.length}, expected length ${serverSecret.length}`);
       return c.json({ error: 'Unauthorized' }, 401);
     }
   }
-  await next();
+  return await next();
 });
 
 // GET /api/books
