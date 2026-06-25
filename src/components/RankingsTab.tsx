@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import Modal from "./Modal";
 import Button from "./Button";
-import { API } from "./api";
+import { API, authAxios } from "./api";
 
 interface RankingsTabProps {
   books: any;
@@ -35,7 +35,7 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
     if (!editingBook) return;
     setIsSaving(true);
     try {
-      await axios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
+      await authAxios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
       const updatedBooks = { ...books };
       updatedBooks[editingBook.category] = updatedBooks[editingBook.category].map((b: any) =>
         b.id === editingBook.id ? { ...b, tags: tagsInput } : b
@@ -54,7 +54,7 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
     if (!bookToDelete) return;
     setIsDeleting(true);
     try {
-      await axios.delete(`${API}/books/${bookToDelete.id}`);
+      await authAxios.delete(`${API}/books/${bookToDelete.id}`);
       const updatedBooks = { ...books };
       updatedBooks[bookToDelete.category] = updatedBooks[bookToDelete.category].filter(
         (b: any) => b.id !== bookToDelete.id
@@ -74,7 +74,7 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
       const tagsArray = currentTags.split(",").map((t: string) => t.trim()).filter(Boolean);
       if (tagsArray.includes("to-reread")) return;
       const newTags = [...tagsArray, "to-reread"].join(", ");
-      await axios.put(`${API}/books/${book.id}`, { tags: newTags });
+      await authAxios.put(`${API}/books/${book.id}`, { tags: newTags });
       const updatedBooks = { ...books };
       updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
         b.id === book.id ? { ...b, tags: newTags } : b

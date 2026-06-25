@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import Modal from "./Modal";
 import Button from "./Button";
-import { API } from "./api";
+import { API, authAxios } from "./api";
 
 interface AddBookTabProps {
   books: any;
@@ -71,14 +71,14 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
       let updated = books[selectedCategory] || [];
       updated.splice(updated.length, 0, { ...addingBook, tags: tagsInput });
       setBooks({ ...books, [selectedCategory]: updated });
-      await axios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position: updated.length - 1, tags: tagsInput });
+      await authAxios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position: updated.length - 1, tags: tagsInput });
       setAddTabState((prev: any) => ({ ...prev, addingBook: null, showAddModal: false, showComparisonModal: false, isComparing: false }));
       setIsProcessing(false);
       return;
     } else if (arr.length === 0) {
       update("showAddModal", false);
       setBooks({ ...books, [selectedCategory]: [{ ...addingBook, tags: tagsInput }] });
-      await axios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position: 0, tags: tagsInput });
+      await authAxios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position: 0, tags: tagsInput });
       setAddTabState((prev: any) => ({ ...prev, addingBook: null, showAddModal: false, showComparisonModal: false, isComparing: false }));
       setIsProcessing(false);
     } else {
@@ -112,7 +112,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
       const updated = [...arr];
       updated.splice(position, 0, { ...addingBook, tags: tagsInput });
       setBooks({ ...books, [selectedCategory]: updated });
-      await axios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position, tags: tagsInput });
+      await authAxios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position, tags: tagsInput });
       setAddTabState((prev: any) => ({ ...prev, addingBook: null, low: 0, high: 0, midIndex: 0, showComparisonModal: false, isComparing: false }));
       setIsProcessing(false);
       return;

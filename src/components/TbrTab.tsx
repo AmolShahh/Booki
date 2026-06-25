@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import Modal from "./Modal";
 import Button from "./Button";
-import { API } from "./api";
+import { API, authAxios } from "./api";
 
 interface TbrTabProps {
   books: any;
@@ -50,7 +50,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     if (!editingBook) return;
     setIsSaving(true);
     try {
-      await axios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
+      await authAxios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
       const updatedBooks = { ...books };
       updatedBooks[editingBook.category] = updatedBooks[editingBook.category].map((b: any) =>
         b.id === editingBook.id ? { ...b, tags: tagsInput } : b
@@ -69,7 +69,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     if (!bookToDelete) return;
     setIsDeleting(true);
     try {
-      await axios.delete(`${API}/books/${bookToDelete.id}`);
+      await authAxios.delete(`${API}/books/${bookToDelete.id}`);
       const updatedBooks = { ...books };
       updatedBooks[bookToDelete.category] = updatedBooks[bookToDelete.category].filter(
         (b: any) => b.id !== bookToDelete.id
@@ -91,7 +91,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       const newTags = tagsArray.includes("currently-reading")
         ? tagsArray.filter((t: string) => t !== "currently-reading").join(", ")
         : [...tagsArray, "currently-reading"].join(", ");
-      await axios.put(`${API}/books/${book.id}`, { tags: newTags });
+      await authAxios.put(`${API}/books/${book.id}`, { tags: newTags });
       const updatedBooks = { ...books };
       updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
         b.id === book.id ? { ...b, tags: newTags } : b
@@ -118,7 +118,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       (b: any) => !(b.title === movingBook.title && b.author === movingBook.author)
     );
     try {
-      await axios.delete(`${API}/books/${movingBook.id}`);
+      await authAxios.delete(`${API}/books/${movingBook.id}`);
     } catch (error) {
       console.error("Error deleting from TBR:", error);
       setIsMoving(false);
@@ -131,7 +131,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     if (arr.length === 0) {
       const updated = [{ ...movingBook, tags: moveTagsInput, category: selectedCategory }];
       setBooks({ ...updatedBooks, [selectedCategory]: updated });
-      await axios.post(`${API}/books`, {
+      await authAxios.post(`${API}/books`, {
         title: movingBook.title, author: movingBook.author,
         category: selectedCategory, position: 0, tags: moveTagsInput,
       });
@@ -162,7 +162,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       const updated = [...arr];
       updated.splice(position, 0, { ...movingBook, tags: moveTagsInput, category: selectedCategory });
       setBooks({ ...books, [selectedCategory]: updated });
-      await axios.post(`${API}/books`, {
+      await authAxios.post(`${API}/books`, {
         title: movingBook.title, author: movingBook.author,
         category: selectedCategory, position, tags: moveTagsInput,
       });
@@ -247,7 +247,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     tbrBooks.splice(droppedOnIndex, 0, draggedItem);
     setBooks({ ...books, tbr: tbrBooks });
     try {
-      await axios.put(`${API}/reorder`, {
+      await authAxios.put(`${API}/reorder`, {
         reorderedData: tbrBooks.map((book: any, index: any) => ({ id: Number(book.id), position: Number(index) })),
       });
     } catch (error) { console.error("Error reordering:", error); }
