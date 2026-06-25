@@ -46,21 +46,14 @@ app.use('/*', cors({
 const API_CATEGORIES = ["liked it", "it was ok", "didn't like it", "tbr"];
 
 // Auth middleware — only protects mutating methods, GET stays open
-app.use('*', async (c, next) => {
+app.use('/*', async (c, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(c.req.method)) {
     const key = c.req.header('x-api-key');
-    
-    // Safety check: ensure your environment binding actually exists
-    if (!c.env.API_SECRET) {
-      console.error("CRITICAL: API_SECRET is not bound to the environment!");
-      return c.json({ error: 'Server configuration error' }, 500);
-    }
-
     if (!key || key !== c.env.API_SECRET) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
   }
-  return await next();
+  await next();
 });
 
 // GET /api/books
