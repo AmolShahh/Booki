@@ -41,6 +41,7 @@ app.use('/*', cors({
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'x-api-key'],
   credentials: true,
+  preflightContinue: false,
 }));
 
 const API_CATEGORIES = ["liked it", "it was ok", "didn't like it", "tbr"];
