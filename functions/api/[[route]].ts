@@ -141,6 +141,8 @@ app.put('/reorder', async (c) => {
 // GET /api/search
 // GET /api/search
 app.get('/search', async (c) => {
+  console.log("GOOGLE_BOOKS_API_KEY present:", !!c.env.GOOGLE_BOOKS_API_KEY);
+  console.log("GOOGLE_BOOKS_API_KEY value:", c.env.GOOGLE_BOOKS_API_KEY);
   try {
     const query = c.req.query('q');
     if (!query) return c.json({ error: 'Query parameter required' }, 400);
