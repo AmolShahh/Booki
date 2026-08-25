@@ -4,7 +4,9 @@ import { cors } from 'hono/cors';
 // Types
 type Env = {
   DB: D1Database;
-  API_SECRET: string;
+  // Same env var the frontend uses (VITE_ prefix required by Vite at build time).
+  // Cloudflare Pages exposes it to both the client build and Pages Functions.
+  VITE_API_SECRET: string;
   GOOGLE_BOOKS_API_KEY: string;
 };
 
@@ -53,14 +55,14 @@ app.use('*', async (c, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(c.req.method)) {
     const key = c.req.header('x-api-key');
     
-    if (!c.env.API_SECRET) {
-      console.error("CRITICAL: API_SECRET variable is completely missing or unbound in Cloudflare Settings.");
+    if (!c.env.VITE_API_SECRET) {
+      console.error("CRITICAL: VITE_API_SECRET variable is completely missing or unbound in Cloudflare Settings.");
       return c.json({ error: 'Server configuration error' }, 500);
     }
 
     // Use .trim() to bypass hidden Cloudflare dashboard formatting issues
     const clientKey = key ? key.trim() : '';
-    const serverSecret = c.env.API_SECRET.trim();
+    const serverSecret = c.env.VITE_API_SECRET.trim();
 
     if (!clientKey || clientKey !== serverSecret) {
       console.error(`AUTH FAILED: Received length ${clientKey.length}, expected length ${serverSecret.length}`);
