@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Tag, Trash2 } from "lucide-react";
+import { Check, Repeat, Tag, Trash2 } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
 import SearchBar from "./SearchBar";
@@ -8,7 +8,7 @@ import BookSkeleton from "./BookSkeleton";
 import IconAction from "./IconAction";
 import ActiveTagFilters from "./ActiveTagFilters";
 import TagInput from "./TagInput";
-import { API, authAxios, apiErrorMessage } from "./api";
+import { API, authAxios, apiErrorMessage, putBook, applyBookPatch, inferTimesRead } from "./api";
 import { RANKING_CATEGORIES } from "./bookMeta";
 import { useToast } from "./ToastContext";
 
@@ -42,10 +42,10 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags, loading
     if (!editingBook) return;
     setIsSaving(true);
     try {
-      await authAxios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
+      await putBook(editingBook, { tags: tagsInput });
       const updatedBooks = { ...books };
       updatedBooks[editingBook.category] = updatedBooks[editingBook.category].map((b: any) =>
-        b.id === editingBook.id ? { ...b, tags: tagsInput } : b
+        b.id === editingBook.id ? applyBookPatch(b, { tags: tagsInput }) : b
       );
       setBooks(updatedBooks);
       show({ message: `Updated tags for "${editingBook.title}"` });
@@ -109,16 +109,32 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags, loading
     }
   };
 
+  const handleIncrementRead = async (book: any) => {
+    const next = inferTimesRead(book) + 1;
+    try {
+      await putBook(book, { times_read: next });
+      const updatedBooks = { ...books };
+      updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
+        b.id === book.id ? applyBookPatch(b, { times_read: next }) : b
+      );
+      setBooks(updatedBooks);
+      show({ message: `Logged read #${next} for "${book.title}"` });
+    } catch (error) {
+      console.error("Error incrementing read count:", error);
+      show({ message: apiErrorMessage(error, "Failed to log read") });
+    }
+  };
+
   const handleRemoveRereadTag = async (book: any) => {
     setMarkingId(book.id);
     try {
       const currentTags = book.tags || "";
       const tagsArray = currentTags.split(",").map((t: string) => t.trim()).filter(Boolean);
       const newTags = tagsArray.filter((t: string) => t !== "to-reread").join(", ");
-      await authAxios.put(`${API}/books/${book.id}`, { tags: newTags });
+      await putBook(book, { tags: newTags });
       const updatedBooks = { ...books };
       updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
-        b.id === book.id ? { ...b, tags: newTags } : b
+        b.id === book.id ? applyBookPatch(b, { tags: newTags }) : b
       );
       setBooks(updatedBooks);
       show({ message: `"${book.title}" no longer marked to reread` });
@@ -176,6 +192,12 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags, loading
     categoryDot: book.category,
     actions: (
       <>
+        <IconAction
+          icon={Repeat}
+          label={`Log another read${typeof book.times_read === "number" ? ` (currently ${book.times_read}×)` : ""}`}
+          onClick={() => handleIncrementRead(book)}
+          tone="accent"
+        />
         <IconAction
           icon={Check}
           label="Mark as read (remove reread tag)"

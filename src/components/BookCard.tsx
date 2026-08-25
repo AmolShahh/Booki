@@ -62,7 +62,17 @@ const BookCard: React.FC<BookCardProps> = ({
           <p className="text-base font-semibold leading-snug text-text-primary break-words">
             {book.title}
           </p>
-          <p className="mt-0.5 text-sm text-text-secondary">{book.author}</p>
+          <p className="mt-0.5 text-sm text-text-secondary">
+            {book.author}
+            {typeof book.times_read === "number" && book.times_read > 1 && (
+              <span
+                className="ml-2 text-xs text-text-muted tabular-nums"
+                title={`Read ${book.times_read} times`}
+              >
+                · {book.times_read}×
+              </span>
+            )}
+          </p>
           {categoryDot && rank !== undefined && (
             <p className="mt-1 text-xs capitalize text-text-muted">
               Originally in {categoryDot}

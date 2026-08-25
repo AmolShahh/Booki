@@ -68,6 +68,14 @@ const BookRow: React.FC<BookRowProps> = ({
             {book.title}
           </span>
           <span className="text-sm text-text-secondary">{book.author}</span>
+          {typeof book.times_read === "number" && book.times_read > 1 && (
+            <span
+              className="text-xs text-text-muted tabular-nums"
+              title={`Read ${book.times_read} times`}
+            >
+              · {book.times_read}×
+            </span>
+          )}
         </div>
         <TagList tags={book.tags} className="mt-1" onTagClick={onTagClick} activeTags={activeTags} />
       </div>

@@ -18,6 +18,7 @@ type Book = {
   category: string;
   position: number;
   tags?: string;
+  times_read?: number | null;
 };
 
 type ReorderItem = {
@@ -76,7 +77,7 @@ app.use('*', async (c, next) => {
 app.get('/books', async (c) => {
   const db = c.env.DB;
   const { results } = await db.prepare(
-    'SELECT id, title, author, isbn, category, position, tags FROM books'
+    'SELECT id, title, author, isbn, category, position, tags, times_read FROM books'
   ).all();
 
   const groupedResult: Record<string, any[]> = {};
@@ -99,13 +100,20 @@ app.post('/books', async (c) => {
   await db.prepare(
     'UPDATE books SET position = position + 1 WHERE category = ? AND position >= ?'
   ).bind(book.category, book.position).run();
+  // Default read count: 0 for TBR (unread), 1 for anything that lands in a
+  // ranking category (adding it implies you've read it).
+  const timesRead =
+    typeof book.times_read === 'number' && book.times_read >= 0
+      ? book.times_read
+      : (book.category === 'tbr' ? 0 : 1);
   const result = await db.prepare(
-    'INSERT INTO books (title, author, isbn, category, position, tags) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(book.title, book.author, book.isbn || null, book.category, book.position, book.tags || '').run();
+    'INSERT INTO books (title, author, isbn, category, position, tags, times_read) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).bind(book.title, book.author, book.isbn || null, book.category, book.position, book.tags || '', timesRead).run();
   return c.json({ status: 'ok', id: result.meta.last_row_id });
 });
 
 // PUT /api/books/:id
+// Accepts any subset of { tags, times_read }. At least one must be provided.
 app.put('/books/:id', async (c) => {
   try {
     const db = c.env.DB;
@@ -114,12 +122,34 @@ app.put('/books/:id', async (c) => {
       return c.json({ error: 'Invalid book id' }, 400);
     }
     const body = await c.req.json().catch(() => ({} as any));
-    // D1's .bind() throws on undefined — coerce to a string so an empty-tags
-    // update (user cleared all tags) works instead of 500-ing.
-    const tags = typeof body?.tags === 'string' ? body.tags : '';
+
+    const sets: string[] = [];
+    const binds: (string | number)[] = [];
+
+    // D1's .bind() throws on undefined — only touch the column if the caller
+    // explicitly sent it, so a tags-only update doesn't wipe times_read.
+    if (Object.prototype.hasOwnProperty.call(body, 'tags')) {
+      const tags = typeof body.tags === 'string' ? body.tags : '';
+      sets.push('tags = ?');
+      binds.push(tags);
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'times_read')) {
+      const n = Number(body.times_read);
+      if (!Number.isInteger(n) || n < 0) {
+        return c.json({ error: 'times_read must be a non-negative integer' }, 400);
+      }
+      sets.push('times_read = ?');
+      binds.push(n);
+    }
+
+    if (sets.length === 0) {
+      return c.json({ error: 'Nothing to update (send tags and/or times_read)' }, 400);
+    }
+
+    binds.push(bookId);
     const result = await db.prepare(
-      'UPDATE books SET tags = ? WHERE id = ?'
-    ).bind(tags, bookId).run();
+      `UPDATE books SET ${sets.join(', ')} WHERE id = ?`
+    ).bind(...binds).run();
     if (result.meta.changes === 0) return c.json({ error: 'Book not found' }, 404);
     return c.json({ status: 'ok' });
   } catch (e) {

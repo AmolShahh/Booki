@@ -8,7 +8,7 @@ import BookSkeleton from "./BookSkeleton";
 import IconAction from "./IconAction";
 import ActiveTagFilters from "./ActiveTagFilters";
 import TagInput from "./TagInput";
-import { API, authAxios, apiErrorMessage } from "./api";
+import { API, authAxios, apiErrorMessage, putBook, applyBookPatch, inferTimesRead } from "./api";
 import { RANKING_CATEGORIES } from "./bookMeta";
 import { useToast } from "./ToastContext";
 
@@ -46,10 +46,10 @@ const ReadingTab: React.FC<ReadingTabProps> = ({ books, setBooks, allTags, loadi
     if (!editingBook) return;
     setIsSaving(true);
     try {
-      await authAxios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
+      await putBook(editingBook, { tags: tagsInput });
       const updatedBooks = { ...books };
       updatedBooks[editingBook.category] = updatedBooks[editingBook.category].map((b: any) =>
-        b.id === editingBook.id ? { ...b, tags: tagsInput } : b
+        b.id === editingBook.id ? applyBookPatch(b, { tags: tagsInput }) : b
       );
       setBooks(updatedBooks);
       show({ message: `Updated tags for "${editingBook.title}"` });
@@ -119,17 +119,18 @@ const ReadingTab: React.FC<ReadingTabProps> = ({ books, setBooks, allTags, loadi
       const currentTags = book.tags || "";
       const tagsArray = currentTags.split(",").map((t: string) => t.trim()).filter(Boolean);
       const newTags = tagsArray.filter((t: string) => t !== "currently-reading").join(", ");
-      await authAxios.put(`${API}/books/${book.id}`, { tags: newTags });
+      const nextReadCount = inferTimesRead(book) + 1;
+      await putBook(book, { tags: newTags, times_read: nextReadCount });
       const updatedBooks = { ...books };
       updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
-        b.id === book.id ? { ...b, tags: newTags } : b
+        b.id === book.id ? applyBookPatch(b, { tags: newTags, times_read: nextReadCount }) : b
       );
       setBooks(updatedBooks);
       show({
         message:
           book.category === "tbr"
-            ? `Finished "${book.title}" — head to TBR to rank it`
-            : `Marked "${book.title}" as done`,
+            ? `Finished "${book.title}" (read #${nextReadCount}) — head to TBR to rank it`
+            : `Marked "${book.title}" as done (read #${nextReadCount})`,
       });
     } catch (error) {
       console.error("Error unmarking currently-reading:", error);

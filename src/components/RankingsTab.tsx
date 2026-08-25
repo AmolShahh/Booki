@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowUpDown, Bookmark, Tag, Trash2 } from "lucide-react";
+import { ArrowUpDown, Bookmark, Repeat, Tag, Trash2 } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
 import SearchBar from "./SearchBar";
@@ -9,7 +9,7 @@ import BookSkeleton from "./BookSkeleton";
 import IconAction from "./IconAction";
 import ActiveTagFilters from "./ActiveTagFilters";
 import TagInput from "./TagInput";
-import { API, authAxios, apiErrorMessage } from "./api";
+import { API, authAxios, apiErrorMessage, putBook, applyBookPatch, inferTimesRead } from "./api";
 import { RANKING_CATEGORIES, CATEGORY_LABEL } from "./bookMeta";
 import { useToast } from "./ToastContext";
 
@@ -48,10 +48,10 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags, loa
     if (!editingBook) return;
     setIsSaving(true);
     try {
-      await authAxios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
+      await putBook(editingBook, { tags: tagsInput });
       const updatedBooks = { ...books };
       updatedBooks[editingBook.category] = updatedBooks[editingBook.category].map((b: any) =>
-        b.id === editingBook.id ? { ...b, tags: tagsInput } : b
+        b.id === editingBook.id ? applyBookPatch(b, { tags: tagsInput }) : b
       );
       setBooks(updatedBooks);
       show({ message: `Updated tags for "${editingBook.title}"` });
@@ -115,16 +115,32 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags, loa
     }
   };
 
+  const handleIncrementRead = async (book: any) => {
+    const next = inferTimesRead(book) + 1;
+    try {
+      await putBook(book, { times_read: next });
+      const updatedBooks = { ...books };
+      updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
+        b.id === book.id ? applyBookPatch(b, { times_read: next }) : b
+      );
+      setBooks(updatedBooks);
+      show({ message: `Logged read #${next} for "${book.title}"` });
+    } catch (error) {
+      console.error("Error incrementing read count:", error);
+      show({ message: apiErrorMessage(error, "Failed to log read") });
+    }
+  };
+
   const handleReread = async (book: any) => {
     try {
       const currentTags = book.tags || "";
       const tagsArray = currentTags.split(",").map((t: string) => t.trim()).filter(Boolean);
       if (tagsArray.includes("to-reread")) return;
       const newTags = [...tagsArray, "to-reread"].join(", ");
-      await authAxios.put(`${API}/books/${book.id}`, { tags: newTags });
+      await putBook(book, { tags: newTags });
       const updatedBooks = { ...books };
       updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
-        b.id === book.id ? { ...b, tags: newTags } : b
+        b.id === book.id ? applyBookPatch(b, { tags: newTags }) : b
       );
       setBooks(updatedBooks);
       show({ message: `Marked "${book.title}" to reread` });
@@ -251,6 +267,12 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags, loa
             isTop3,
             actions: (
               <>
+                <IconAction
+                  icon={Repeat}
+                  label={`Log another read${typeof book.times_read === "number" ? ` (currently ${book.times_read}×)` : ""}`}
+                  onClick={() => handleIncrementRead(book)}
+                  tone="accent"
+                />
                 <IconAction icon={ArrowUpDown} label="Re-rank" onClick={() => startRerank(book)} tone="accent" />
                 <IconAction
                   icon={Bookmark}

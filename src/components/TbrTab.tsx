@@ -9,7 +9,7 @@ import BookSkeleton from "./BookSkeleton";
 import IconAction from "./IconAction";
 import ActiveTagFilters from "./ActiveTagFilters";
 import TagInput from "./TagInput";
-import { API, authAxios, apiErrorMessage } from "./api";
+import { API, authAxios, apiErrorMessage, putBook, applyBookPatch, inferTimesRead } from "./api";
 import { useToast } from "./ToastContext";
 
 interface TbrTabProps {
@@ -55,10 +55,10 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) =>
     if (!editingBook) return;
     setIsSaving(true);
     try {
-      await authAxios.put(`${API}/books/${editingBook.id}`, { tags: tagsInput });
+      await putBook(editingBook, { tags: tagsInput });
       const updatedBooks = { ...books };
       updatedBooks[editingBook.category] = updatedBooks[editingBook.category].map((b: any) =>
-        b.id === editingBook.id ? { ...b, tags: tagsInput } : b
+        b.id === editingBook.id ? applyBookPatch(b, { tags: tagsInput }) : b
       );
       setBooks(updatedBooks);
       show({ message: `Updated tags for "${editingBook.title}"` });
@@ -130,10 +130,10 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) =>
       const newTags = tagsArray.includes("currently-reading")
         ? tagsArray.filter((t: string) => t !== "currently-reading").join(", ")
         : [...tagsArray, "currently-reading"].join(", ");
-      await authAxios.put(`${API}/books/${book.id}`, { tags: newTags });
+      await putBook(book, { tags: newTags });
       const updatedBooks = { ...books };
       updatedBooks[book.category] = updatedBooks[book.category].map((b: any) =>
-        b.id === book.id ? { ...b, tags: newTags } : b
+        b.id === book.id ? applyBookPatch(b, { tags: newTags }) : b
       );
       setBooks(updatedBooks);
       show({ message: tagsArray.includes("currently-reading") ? `Unmarked "${book.title}" as currently reading` : `Marked "${book.title}" as currently reading` });
@@ -153,9 +153,15 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) =>
   };
 
   const insertIntoCategoryAndDeleteTbr = async (position: number) => {
+    // Preserve read history from the TBR row (usually 0, but non-zero if the
+    // user marked & unmarked currently-reading before ranking). Backend defaults
+    // to 1 for non-tbr categories, so we only need to override when the count
+    // is already higher. Uses inferTimesRead so null-valued rows also carry.
+    const carriedReadCount = Math.max(1, inferTimesRead(movingBook));
     const res = await authAxios.post(`${API}/books`, {
       title: movingBook.title, author: movingBook.author,
       category: selectedCategory, position, tags: moveTagsInput,
+      times_read: carriedReadCount,
     });
     await authAxios.delete(`${API}/books/${movingBook.id}`);
     return res.data?.id;
