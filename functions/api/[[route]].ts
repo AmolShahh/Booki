@@ -232,6 +232,7 @@ app.get('/search', async (c) => {
     const apiKey = c.env.GOOGLE_BOOKS_API_KEY?.trim();
 
     let raw: SearchResult[] | null = null;
+    let source: 'google' | 'openlibrary' | null = null;
     let googleError: string | null = null;
     let openLibraryError: string | null = null;
 
@@ -239,11 +240,13 @@ app.get('/search', async (c) => {
       const attempt = await searchGoogleBooks(query, apiKey);
       raw = attempt.results;
       googleError = attempt.error;
+      if (raw && raw.length > 0) source = 'google';
     }
     if (!raw || raw.length === 0) {
       const attempt = await searchOpenLibrary(query);
       raw = attempt.results;
       openLibraryError = attempt.error;
+      if (raw && raw.length > 0) source = 'openlibrary';
     }
 
     if (!raw) {
@@ -253,7 +256,7 @@ app.get('/search', async (c) => {
         openLibraryError,
       }, 502);
     }
-    return c.json({ results: dedupe(raw) });
+    return c.json({ results: dedupe(raw), source });
   } catch (error) {
     console.error('Search error:', error);
     return c.json({ error: 'Search failed', details: error instanceof Error ? error.message : 'Unknown error' }, 500);
