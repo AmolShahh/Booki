@@ -141,46 +141,101 @@ app.put('/reorder', async (c) => {
   return c.json({ status: 'ok', message: 'Books reordered successfully' });
 });
 
+type SearchResult = { title: string; author: string; isbn: string | null };
+
+function dedupe(items: SearchResult[], limit = 10): SearchResult[] {
+  const seen = new Set<string>();
+  const out: SearchResult[] = [];
+  for (const r of items) {
+    const key = `${r.title.toLowerCase()}|${r.author.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+type SearchAttempt = { results: SearchResult[] | null; error: string | null };
+
+async function searchGoogleBooks(query: string, apiKey?: string): Promise<SearchAttempt> {
+  const params = new URLSearchParams({ q: query, maxResults: '20', printType: 'books' });
+  if (apiKey) params.set('key', apiKey);
+  const response = await fetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`);
+  if (!response.ok) {
+    const body = await response.text();
+    const error = `Google Books ${response.status}: ${body.slice(0, 500)}`;
+    console.error(error);
+    return { results: null, error };
+  }
+  const data = await response.json() as { items?: any[] };
+  const results: SearchResult[] = [];
+  for (const item of data.items || []) {
+    const v = item.volumeInfo || {};
+    if (!v.title || !v.authors?.length) continue;
+    results.push({
+      title: v.title,
+      author: v.authors.join(', '),
+      isbn: v.industryIdentifiers?.find(
+        (id: any) => id.type === 'ISBN_13' || id.type === 'ISBN_10'
+      )?.identifier || null,
+    });
+  }
+  return { results, error: null };
+}
+
+async function searchOpenLibrary(query: string): Promise<SearchResult[] | null> {
+  const params = new URLSearchParams({
+    q: query, limit: '20', fields: 'title,author_name,isbn',
+  });
+  const response = await fetch(`https://openlibrary.org/search.json?${params.toString()}`, {
+    headers: { 'User-Agent': 'Booki/1.0 (https://booki-2od.pages.dev)' },
+  });
+  if (!response.ok) {
+    console.error(`Open Library ${response.status}: ${await response.text()}`);
+    return null;
+  }
+  const data = await response.json() as { docs?: any[] };
+  const results: SearchResult[] = [];
+  for (const doc of data.docs || []) {
+    if (!doc.title || !doc.author_name?.length) continue;
+    results.push({
+      title: doc.title,
+      author: doc.author_name.join(', '),
+      isbn: doc.isbn?.[0] || null,
+    });
+  }
+  return results;
+}
+
 // GET /api/search
+// Tries Google Books first (richer metadata; needs a key on Cloudflare because
+// Workers share outbound IPs and Google rate-limits anonymous traffic hard).
+// Falls back to Open Library — no key required — so the endpoint stays useful
+// even without GOOGLE_BOOKS_API_KEY set in the environment.
 app.get('/search', async (c) => {
   try {
     const query = c.req.query('q');
     if (!query) return c.json({ error: 'Query parameter required' }, 400);
 
-    // Google Books v1 works without an API key (subject to per-IP rate limits).
-    // If a key is configured we send it for higher quotas, but its absence is not fatal.
     const apiKey = c.env.GOOGLE_BOOKS_API_KEY?.trim();
-    const params = new URLSearchParams({ q: query, maxResults: '20', printType: 'books' });
-    if (apiKey) params.set('key', apiKey);
-    const url = `https://www.googleapis.com/books/v1/volumes?${params.toString()}`;
+    let raw: SearchResult[] | null = null;
+    let googleError: string | null = null;
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Google Books API ${response.status}: ${errorText}`);
-      return c.json({ error: 'Search failed', status: response.status }, 502);
+    if (apiKey) {
+      const attempt = await searchGoogleBooks(query, apiKey);
+      raw = attempt.results;
+      googleError = attempt.error;
     }
+    if (!raw || raw.length === 0) raw = await searchOpenLibrary(query);
 
-    const data = await response.json() as { items?: any[] };
-    const seen = new Set<string>();
-    const results: { title: string; author: string; isbn: string | null }[] = [];
-    for (const item of data.items || []) {
-      const v = item.volumeInfo || {};
-      const title = v.title;
-      const author = v.authors?.join(', ');
-      // Skip items with no title or author — Google occasionally returns bare records.
-      if (!title || !author) continue;
-      const key = `${title.toLowerCase()}|${author.toLowerCase()}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const isbn = v.industryIdentifiers?.find(
-        (id: any) => id.type === 'ISBN_13' || id.type === 'ISBN_10'
-      )?.identifier || null;
-      results.push({ title, author, isbn });
-      if (results.length >= 10) break;
+    if (!raw) {
+      // Bubble the Google response up so the client can see WHY (referrer
+      // restriction, disabled API, invalid key, etc.) without having to open
+      // Cloudflare logs. The upstream body is already in server logs too.
+      return c.json({ error: 'Search providers unavailable', googleError }, 502);
     }
-
-    return c.json({ results });
+    return c.json({ results: dedupe(raw) });
   } catch (error) {
     console.error('Search error:', error);
     return c.json({ error: 'Search failed', details: error instanceof Error ? error.message : 'Unknown error' }, 500);
