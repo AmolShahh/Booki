@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { ListOrdered, Bookmark } from "lucide-react";
 import { API } from "./api";
 import Header from "./Header";
 import SearchBar from "./SearchBar";
@@ -43,8 +44,8 @@ const PublicView: React.FC = () => {
     <div className="min-h-screen bg-canvas text-text-primary">
       <Header
         tabs={[
-          { key: "rankings", label: "Rankings" },
-          { key: "tbr", label: "TBR" },
+          { key: "rankings", label: "Ranked", icon: ListOrdered },
+          { key: "tbr", label: "To read", icon: Bookmark },
         ]}
         activeTab={activeTab}
         onSelectTab={setActiveTab}

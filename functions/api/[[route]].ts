@@ -105,14 +105,26 @@ app.post('/books', async (c) => {
 
 // PUT /api/books/:id
 app.put('/books/:id', async (c) => {
-  const db = c.env.DB;
-  const bookId = parseInt(c.req.param('id'));
-  const { tags } = await c.req.json();
-  const result = await db.prepare(
-    'UPDATE books SET tags = ? WHERE id = ?'
-  ).bind(tags, bookId).run();
-  if (result.meta.changes === 0) return c.json({ error: 'Book not found' }, 404);
-  return c.json({ status: 'ok' });
+  try {
+    const db = c.env.DB;
+    const bookId = parseInt(c.req.param('id'));
+    if (!Number.isFinite(bookId)) {
+      return c.json({ error: 'Invalid book id' }, 400);
+    }
+    const body = await c.req.json().catch(() => ({} as any));
+    // D1's .bind() throws on undefined — coerce to a string so an empty-tags
+    // update (user cleared all tags) works instead of 500-ing.
+    const tags = typeof body?.tags === 'string' ? body.tags : '';
+    const result = await db.prepare(
+      'UPDATE books SET tags = ? WHERE id = ?'
+    ).bind(tags, bookId).run();
+    if (result.meta.changes === 0) return c.json({ error: 'Book not found' }, 404);
+    return c.json({ status: 'ok' });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('PUT /books/:id failed:', msg);
+    return c.json({ error: 'Failed to update book', details: msg }, 500);
+  }
 });
 
 // DELETE /api/books/:id

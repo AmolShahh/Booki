@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
+import { Plus, ListOrdered, Bookmark, RotateCcw } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import AddBookTab from "./components/AddBookTab";
 import RankingsTab from "./components/RankingsTab";
 import TbrTab from "./components/TbrTab";
@@ -10,11 +12,11 @@ import { API } from "./components/api";
 
 type TabKey = "add" | "rankings" | "tbr" | "reread";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "add", label: "Add" },
-  { key: "rankings", label: "Rankings" },
-  { key: "tbr", label: "TBR" },
-  { key: "reread", label: "Reread" },
+const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
+  { key: "add", label: "Add", icon: Plus },
+  { key: "rankings", label: "Ranked", icon: ListOrdered },
+  { key: "tbr", label: "To read", icon: Bookmark },
+  { key: "reread", label: "Reread", icon: RotateCcw },
 ];
 
 const App: React.FC = () => {

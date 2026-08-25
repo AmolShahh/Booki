@@ -1,11 +1,14 @@
 import { Sun, Moon, Rows3, LayoutList } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useTheme } from "./ThemeContext";
 import { useDensity } from "./DensityContext";
 import TabButton from "./TabButton";
+import Logo from "./Logo";
 
 interface HeaderTab {
   key: string;
   label: string;
+  icon?: LucideIcon;
 }
 
 interface HeaderProps<K extends string> {
@@ -25,22 +28,22 @@ function Header<K extends string>({ tabs, activeTab, onSelectTab }: HeaderProps<
     <header className="sticky top-0 z-30 border-b border-border-subtle bg-canvas/85 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4 sm:px-6">
         {/* Wordmark */}
-        <a href="/" className="flex flex-none items-center gap-2 no-underline">
-          <span
-            aria-hidden
-            className="h-2 w-2 rounded-full bg-accent"
-          />
-          <span className="font-serif text-lg font-semibold text-text-primary">
+        <a href="/" className="group flex flex-none items-center gap-2 no-underline">
+          <span className="text-accent transition-transform group-hover:-rotate-6">
+            <Logo size={22} />
+          </span>
+          <span className="font-serif text-xl font-bold tracking-tight text-text-primary">
             Booki
           </span>
         </a>
 
         {/* Tabs — scroll horizontally on narrow screens */}
-        <nav className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto">
+        <nav className="flex min-w-0 flex-1 items-center justify-center gap-0.5 overflow-x-auto">
           {tabs.map((tab) => (
             <TabButton
               key={tab.key}
               label={tab.label}
+              icon={tab.icon}
               isActive={activeTab === tab.key}
               onClick={() => onSelectTab(tab.key as K)}
             />

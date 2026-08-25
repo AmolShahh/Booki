@@ -11,3 +11,16 @@ export const authAxios = axios.create({
     "x-api-key": import.meta.env.VITE_API_SECRET,
   },
 });
+
+/** Turns an axios/network error into a user-facing string with the server's own
+ *  error details when present, so toasts show why a mutation failed. */
+export const apiErrorMessage = (error: unknown, fallback: string): string => {
+  if (axios.isAxiosError(error)) {
+    const data: any = error.response?.data;
+    if (typeof data?.details === "string") return `${fallback}: ${data.details}`;
+    if (typeof data?.error === "string") return `${fallback}: ${data.error}`;
+    if (error.response?.status) return `${fallback} (HTTP ${error.response.status})`;
+    if (error.message) return `${fallback}: ${error.message}`;
+  }
+  return fallback;
+};

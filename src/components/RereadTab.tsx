@@ -8,7 +8,7 @@ import BookSkeleton from "./BookSkeleton";
 import IconAction from "./IconAction";
 import ActiveTagFilters from "./ActiveTagFilters";
 import TagInput from "./TagInput";
-import { API, authAxios } from "./api";
+import { API, authAxios, apiErrorMessage } from "./api";
 import { RANKING_CATEGORIES } from "./bookMeta";
 import { useToast } from "./ToastContext";
 
@@ -53,7 +53,7 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags, loading
       setTagsInput("");
     } catch (error) {
       console.error("Error saving tags:", error);
-      show({ message: "Failed to save tags" });
+      show({ message: apiErrorMessage(error, "Failed to save tags") });
     } finally {
       setIsSaving(false);
     }
@@ -103,7 +103,7 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags, loading
       });
     } catch (error) {
       console.error("Error deleting book:", error);
-      show({ message: "Failed to remove book" });
+      show({ message: apiErrorMessage(error, "Failed to remove book") });
     } finally {
       setIsDeleting(false);
     }
@@ -124,7 +124,7 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags, loading
       show({ message: `"${book.title}" no longer marked to reread` });
     } catch (error) {
       console.error("Error removing reread tag:", error);
-      show({ message: "Failed to update" });
+      show({ message: apiErrorMessage(error, "Failed to update") });
     } finally {
       setMarkingId(null);
     }

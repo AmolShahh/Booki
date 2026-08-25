@@ -9,7 +9,7 @@ import BookSkeleton from "./BookSkeleton";
 import IconAction from "./IconAction";
 import ActiveTagFilters from "./ActiveTagFilters";
 import TagInput from "./TagInput";
-import { API, authAxios } from "./api";
+import { API, authAxios, apiErrorMessage } from "./api";
 import { useToast } from "./ToastContext";
 
 interface TbrTabProps {
@@ -66,7 +66,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) =>
       setTagsInput("");
     } catch (error) {
       console.error("Error saving tags:", error);
-      show({ message: "Failed to save tags" });
+      show({ message: apiErrorMessage(error, "Failed to save tags") });
     } finally {
       setIsSaving(false);
     }
@@ -116,7 +116,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) =>
       });
     } catch (error) {
       console.error("Error deleting book:", error);
-      show({ message: "Failed to remove book" });
+      show({ message: apiErrorMessage(error, "Failed to remove book") });
     } finally {
       setIsDeleting(false);
     }
@@ -139,7 +139,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) =>
       show({ message: tagsArray.includes("currently-reading") ? `Unmarked "${book.title}" as currently reading` : `Marked "${book.title}" as currently reading` });
     } catch (error) {
       console.error("Error toggling currently-reading tag:", error);
-      show({ message: "Failed to update" });
+      show({ message: apiErrorMessage(error, "Failed to update") });
     } finally {
       setReadingId(null);
     }
@@ -178,7 +178,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) =>
         show({ message: `Moved "${movingBook.title}" to ${selectedCategory}` });
       } catch (error) {
         console.error("Error moving book:", error);
-        show({ message: "Failed to move book" });
+        show({ message: apiErrorMessage(error, "Failed to move book") });
         setIsMoving(false);
         return;
       }
@@ -218,7 +218,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) =>
         show({ message: `Moved "${movingBook.title}" to ${selectedCategory} at #${position + 1}` });
       } catch (error) {
         console.error("Error moving book:", error);
-        show({ message: "Failed to move book" });
+        show({ message: apiErrorMessage(error, "Failed to move book") });
         return;
       }
       setMovingBook(null); setLow(0); setHigh(0); setMidIndex(0); setShowComparisonModal(false);
