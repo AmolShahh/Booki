@@ -1,20 +1,22 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { Plus, ListOrdered, Bookmark, RotateCcw } from "lucide-react";
+import { Plus, ListOrdered, BookOpen, Bookmark, RotateCcw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import AddBookTab from "./components/AddBookTab";
 import RankingsTab from "./components/RankingsTab";
 import TbrTab from "./components/TbrTab";
 import RereadTab from "./components/RereadTab";
+import ReadingTab from "./components/ReadingTab";
 import Header from "./components/Header";
 import PublicView from "./components/PublicView";
 import { API } from "./components/api";
 
-type TabKey = "add" | "rankings" | "tbr" | "reread";
+type TabKey = "add" | "rankings" | "reading" | "tbr" | "reread";
 
 const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
   { key: "add", label: "Add", icon: Plus },
   { key: "rankings", label: "Ranked", icon: ListOrdered },
+  { key: "reading", label: "Reading", icon: BookOpen },
   { key: "tbr", label: "To read", icon: Bookmark },
   { key: "reread", label: "Reread", icon: RotateCcw },
 ];
@@ -59,14 +61,14 @@ const App: React.FC = () => {
     fetchBooks();
   }, []);
 
-  // Keyboard shortcut: 1/2/3/4 switches tabs (ignored while typing).
+  // Keyboard shortcut: number keys switch tabs (ignored while typing).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const t = e.target;
       if (t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      const idx = ["1", "2", "3", "4"].indexOf(e.key);
-      if (idx === -1) return;
-      const key = TABS[idx]?.key;
+      const n = parseInt(e.key, 10);
+      if (!Number.isFinite(n) || n < 1 || n > TABS.length) return;
+      const key = TABS[n - 1]?.key;
       if (key) setActiveTab(key);
     };
     document.addEventListener("keydown", handler);
@@ -99,6 +101,7 @@ const App: React.FC = () => {
           <AddBookTab books={books} setBooks={setBooks} addTabState={addTabState} setAddTabState={setAddTabState} allTags={allTags} />
         )}
         {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} allTags={allTags} loading={loading} />}
+        {activeTab === "reading" && <ReadingTab books={books} setBooks={setBooks} allTags={allTags} loading={loading} />}
         {activeTab === "tbr" && <TbrTab books={books} setBooks={setBooks} allTags={allTags} loading={loading} />}
         {activeTab === "reread" && <RereadTab books={books} setBooks={setBooks} allTags={allTags} loading={loading} />}
       </main>
