@@ -215,7 +215,7 @@ const RereadTab: React.FC<RereadTabProps> = ({ books, setBooks, allTags, loading
               className="h-2 w-2 rounded-full"
               style={{ background: "var(--cat-reread)" }}
             />
-            <h2 className="font-serif text-base font-semibold text-text-primary">To reread</h2>
+            <h2 className="font-serif text-base font-semibold text-text-primary">To Reread</h2>
             <span className="text-xs text-text-muted tabular-nums">
               {searchQuery || tagFilters.length > 0
                 ? `${filtered.length} of ${rereadBooks.length}`

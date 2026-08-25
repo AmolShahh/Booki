@@ -15,10 +15,10 @@ type TabKey = "add" | "rankings" | "reading" | "tbr" | "reread";
 
 const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
   { key: "add", label: "Add", icon: Plus },
-  { key: "rankings", label: "Ranked", icon: ListOrdered },
-  { key: "reading", label: "Reading", icon: BookOpen },
-  { key: "tbr", label: "To read", icon: Bookmark },
-  { key: "reread", label: "Reread", icon: RotateCcw },
+  { key: "rankings", label: "Read", icon: ListOrdered },
+  { key: "reading", label: "Currently Reading", icon: BookOpen },
+  { key: "tbr", label: "TBR", icon: Bookmark },
+  { key: "reread", label: "To Reread", icon: RotateCcw },
 ];
 
 const App: React.FC = () => {

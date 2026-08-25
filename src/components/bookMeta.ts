@@ -3,8 +3,8 @@ export const CATEGORY_LABEL: Record<string, string> = {
   "liked it": "Liked it",
   "it was ok": "It was ok",
   "didn't like it": "Didn't like it",
-  tbr: "To be read",
-  reread: "To reread",
+  tbr: "TBR",
+  reread: "To Reread",
 };
 
 // Uses CSS custom properties (set in index.css per theme) so dots re-color

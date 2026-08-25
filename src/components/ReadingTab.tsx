@@ -129,7 +129,7 @@ const ReadingTab: React.FC<ReadingTabProps> = ({ books, setBooks, allTags, loadi
         message:
           book.category === "tbr"
             ? `Finished "${book.title}" — head to TBR to rank it`
-            : `Marked "${book.title}" as done reading`,
+            : `Marked "${book.title}" as done`,
       });
     } catch (error) {
       console.error("Error unmarking currently-reading:", error);
@@ -203,7 +203,7 @@ const ReadingTab: React.FC<ReadingTabProps> = ({ books, setBooks, allTags, loadi
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface p-8 text-center">
           <p className="text-base font-medium text-text-primary">Not reading anything right now</p>
           <p className="mt-2 text-sm text-text-secondary">
-            Click the open-book icon on any book in your To read tab to mark it as currently reading.
+            Click the open-book icon on any book in your TBR tab to mark it as currently reading.
           </p>
         </div>
       ) : (
@@ -223,7 +223,7 @@ const ReadingTab: React.FC<ReadingTabProps> = ({ books, setBooks, allTags, loadi
               className="h-2 w-2 rounded-full"
               style={{ background: "var(--cat-tbr)" }}
             />
-            <h2 className="font-serif text-base font-semibold text-text-primary">Reading now</h2>
+            <h2 className="font-serif text-base font-semibold text-text-primary">Currently Reading</h2>
             <span className="text-xs text-text-muted tabular-nums">
               {searchQuery || tagFilters.length > 0
                 ? `${filtered.length} of ${readingBooks.length}`

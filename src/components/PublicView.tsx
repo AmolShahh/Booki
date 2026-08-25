@@ -44,8 +44,8 @@ const PublicView: React.FC = () => {
     <div className="min-h-screen bg-canvas text-text-primary">
       <Header
         tabs={[
-          { key: "rankings", label: "Ranked", icon: ListOrdered },
-          { key: "tbr", label: "To read", icon: Bookmark },
+          { key: "rankings", label: "Read", icon: ListOrdered },
+          { key: "tbr", label: "TBR", icon: Bookmark },
         ]}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
