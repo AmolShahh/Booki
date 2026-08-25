@@ -184,28 +184,36 @@ async function searchGoogleBooks(query: string, apiKey?: string): Promise<Search
   return { results, error: null };
 }
 
-async function searchOpenLibrary(query: string): Promise<SearchResult[] | null> {
+async function searchOpenLibrary(query: string): Promise<SearchAttempt> {
   const params = new URLSearchParams({
     q: query, limit: '20', fields: 'title,author_name,isbn',
   });
-  const response = await fetch(`https://openlibrary.org/search.json?${params.toString()}`, {
-    headers: { 'User-Agent': 'Booki/1.0 (https://booki-2od.pages.dev)' },
-  });
-  if (!response.ok) {
-    console.error(`Open Library ${response.status}: ${await response.text()}`);
-    return null;
-  }
-  const data = await response.json() as { docs?: any[] };
-  const results: SearchResult[] = [];
-  for (const doc of data.docs || []) {
-    if (!doc.title || !doc.author_name?.length) continue;
-    results.push({
-      title: doc.title,
-      author: doc.author_name.join(', '),
-      isbn: doc.isbn?.[0] || null,
+  try {
+    const response = await fetch(`https://openlibrary.org/search.json?${params.toString()}`, {
+      headers: { 'User-Agent': 'Booki/1.0 (https://booki-2od.pages.dev)' },
     });
+    if (!response.ok) {
+      const body = await response.text();
+      const error = `Open Library ${response.status}: ${body.slice(0, 500)}`;
+      console.error(error);
+      return { results: null, error };
+    }
+    const data = await response.json() as { docs?: any[] };
+    const results: SearchResult[] = [];
+    for (const doc of data.docs || []) {
+      if (!doc.title || !doc.author_name?.length) continue;
+      results.push({
+        title: doc.title,
+        author: doc.author_name.join(', '),
+        isbn: doc.isbn?.[0] || null,
+      });
+    }
+    return { results, error: null };
+  } catch (e) {
+    const error = `Open Library threw: ${e instanceof Error ? e.message : String(e)}`;
+    console.error(error);
+    return { results: null, error };
   }
-  return results;
 }
 
 // GET /api/search
@@ -218,22 +226,38 @@ app.get('/search', async (c) => {
     const query = c.req.query('q');
     if (!query) return c.json({ error: 'Query parameter required' }, 400);
 
-    const apiKey = c.env.GOOGLE_BOOKS_API_KEY?.trim();
+    const rawKey = c.env.GOOGLE_BOOKS_API_KEY;
+    const apiKey = typeof rawKey === 'string' ? rawKey.trim() : '';
+    // Diagnostic — safe to expose: only reports presence/length, never the value.
+    const envKeys = Object.keys(c.env || {});
+    const debug = {
+      apiKeyPresent: !!apiKey,
+      apiKeyLength: apiKey.length,
+      envBindings: envKeys,
+    };
+
     let raw: SearchResult[] | null = null;
     let googleError: string | null = null;
+    let openLibraryError: string | null = null;
 
     if (apiKey) {
       const attempt = await searchGoogleBooks(query, apiKey);
       raw = attempt.results;
       googleError = attempt.error;
     }
-    if (!raw || raw.length === 0) raw = await searchOpenLibrary(query);
+    if (!raw || raw.length === 0) {
+      const attempt = await searchOpenLibrary(query);
+      raw = attempt.results;
+      openLibraryError = attempt.error;
+    }
 
     if (!raw) {
-      // Bubble the Google response up so the client can see WHY (referrer
-      // restriction, disabled API, invalid key, etc.) without having to open
-      // Cloudflare logs. The upstream body is already in server logs too.
-      return c.json({ error: 'Search providers unavailable', googleError }, 502);
+      return c.json({
+        error: 'Search providers unavailable',
+        googleError,
+        openLibraryError,
+        debug,
+      }, 502);
     }
     return c.json({ results: dedupe(raw) });
   } catch (error) {
