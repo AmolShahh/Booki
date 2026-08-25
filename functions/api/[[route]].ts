@@ -223,18 +223,13 @@ async function searchOpenLibrary(query: string): Promise<SearchAttempt> {
 // even without GOOGLE_BOOKS_API_KEY set in the environment.
 app.get('/search', async (c) => {
   try {
-    const query = c.req.query('q');
+    const query = c.req.query('q')?.trim();
     if (!query) return c.json({ error: 'Query parameter required' }, 400);
+    // Open Library rejects <3 chars with a 422; Google would return junk. Bail
+    // early so the UI can show a helpful hint instead of a 502.
+    if (query.length < 3) return c.json({ results: [], hint: 'Type at least 3 characters' });
 
-    const rawKey = c.env.GOOGLE_BOOKS_API_KEY;
-    const apiKey = typeof rawKey === 'string' ? rawKey.trim() : '';
-    // Diagnostic — safe to expose: only reports presence/length, never the value.
-    const envKeys = Object.keys(c.env || {});
-    const debug = {
-      apiKeyPresent: !!apiKey,
-      apiKeyLength: apiKey.length,
-      envBindings: envKeys,
-    };
+    const apiKey = c.env.GOOGLE_BOOKS_API_KEY?.trim();
 
     let raw: SearchResult[] | null = null;
     let googleError: string | null = null;
@@ -256,7 +251,6 @@ app.get('/search', async (c) => {
         error: 'Search providers unavailable',
         googleError,
         openLibraryError,
-        debug,
       }, 502);
     }
     return c.json({ results: dedupe(raw) });
