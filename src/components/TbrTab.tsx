@@ -110,41 +110,49 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     setShowMoveModal(true);
   };
 
+  // Insert into the new category first, then remove from TBR — never the other way
+  // around. The previous order lost the book entirely if the POST failed or the
+  // user closed the comparison modal before it completed.
+  const insertIntoCategoryAndDeleteTbr = async (position: number) => {
+    const res = await authAxios.post(`${API}/books`, {
+      title: movingBook.title, author: movingBook.author,
+      category: selectedCategory, position, tags: moveTagsInput,
+    });
+    await authAxios.delete(`${API}/books/${movingBook.id}`);
+    return res.data?.id;
+  };
+
   const confirmMoveToRead = async () => {
     if (!movingBook) return;
     setIsMoving(true);
     const arr = (books[selectedCategory] || []).filter(
       (b: any) => !(b.title === movingBook.title && b.author === movingBook.author)
     );
-    try {
-      await authAxios.delete(`${API}/books/${movingBook.id}`);
-    } catch (error) {
-      console.error("Error deleting from TBR:", error);
-      setIsMoving(false);
-      return;
-    }
-    const updatedBooks = { ...books };
-    updatedBooks.tbr = updatedBooks.tbr.filter((b: any) => b.id !== movingBook.id);
-    setBooks(updatedBooks);
 
     if (arr.length === 0) {
-      const updated = [{ ...movingBook, tags: moveTagsInput, category: selectedCategory }];
-      setBooks({ ...updatedBooks, [selectedCategory]: updated });
-      await authAxios.post(`${API}/books`, {
-        title: movingBook.title, author: movingBook.author,
-        category: selectedCategory, position: 0, tags: moveTagsInput,
-      });
+      try {
+        const newId = await insertIntoCategoryAndDeleteTbr(0);
+        const updatedBooks = { ...books };
+        updatedBooks.tbr = (updatedBooks.tbr || []).filter((b: any) => b.id !== movingBook.id);
+        updatedBooks[selectedCategory] = [{ ...movingBook, id: newId ?? movingBook.id, tags: moveTagsInput, category: selectedCategory }];
+        setBooks(updatedBooks);
+      } catch (error) {
+        console.error("Error moving book:", error);
+        setIsMoving(false);
+        return;
+      }
       setShowMoveModal(false);
       setMovingBook(null);
       setIsMoving(false);
-    } else {
-      setShowMoveModal(false);
-      setLow(0);
-      setHigh(arr.length);
-      setMidIndex(Math.floor(arr.length / 2));
-      setShowComparisonModal(true);
-      setIsMoving(false);
+      return;
     }
+
+    setShowMoveModal(false);
+    setLow(0);
+    setHigh(arr.length);
+    setMidIndex(Math.floor(arr.length / 2));
+    setShowComparisonModal(true);
+    setIsMoving(false);
   };
 
   const handleComparison = async (newBetter: boolean) => {
@@ -158,13 +166,18 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
 
     if (newLow >= newHigh) {
       const position = newLow;
-      const updated = [...arr];
-      updated.splice(position, 0, { ...movingBook, tags: moveTagsInput, category: selectedCategory });
-      setBooks({ ...books, [selectedCategory]: updated });
-      await authAxios.post(`${API}/books`, {
-        title: movingBook.title, author: movingBook.author,
-        category: selectedCategory, position, tags: moveTagsInput,
-      });
+      try {
+        const newId = await insertIntoCategoryAndDeleteTbr(position);
+        const updated = [...arr];
+        updated.splice(position, 0, { ...movingBook, id: newId ?? movingBook.id, tags: moveTagsInput, category: selectedCategory });
+        const updatedBooks = { ...books };
+        updatedBooks.tbr = (updatedBooks.tbr || []).filter((b: any) => b.id !== movingBook.id);
+        updatedBooks[selectedCategory] = updated;
+        setBooks(updatedBooks);
+      } catch (error) {
+        console.error("Error moving book:", error);
+        return;
+      }
       setMovingBook(null); setLow(0); setHigh(0); setMidIndex(0); setShowComparisonModal(false);
       return;
     }

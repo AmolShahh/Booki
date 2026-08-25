@@ -28,15 +28,18 @@ const app = new Hono<{ Bindings: Env }>().basePath('/api');
 // CORS — also allow the x-api-key header
 app.use('/*', cors({
   origin: (origin) => {
-    // Allow localhost for local development, your main production URL, and any preview deployments
+    // Same-origin/tool requests have no Origin header — Hono passes '' (or undefined).
+    // Returning '' lets the request through without an ACAO header, which is correct
+    // for same-origin. Calling .endsWith on undefined here would throw and 500 the request.
+    if (!origin) return '';
     if (
-      origin === 'https://booki-2od.pages.dev' || 
-      origin.endsWith('.booki-2od.pages.dev') || 
+      origin === 'https://booki-2od.pages.dev' ||
+      origin.endsWith('.booki-2od.pages.dev') ||
       origin.startsWith('http://localhost:')
     ) {
       return origin;
     }
-    return ''; // Reject other origins
+    return '';
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'x-api-key'],
@@ -139,41 +142,44 @@ app.put('/reorder', async (c) => {
 });
 
 // GET /api/search
-// GET /api/search
 app.get('/search', async (c) => {
-  console.log("GOOGLE_BOOKS_API_KEY present:", !!c.env.GOOGLE_BOOKS_API_KEY);
-  console.log("GOOGLE_BOOKS_API_KEY value:", c.env.GOOGLE_BOOKS_API_KEY);
   try {
     const query = c.req.query('q');
     if (!query) return c.json({ error: 'Query parameter required' }, 400);
 
+    // Google Books v1 works without an API key (subject to per-IP rate limits).
+    // If a key is configured we send it for higher quotas, but its absence is not fatal.
     const apiKey = c.env.GOOGLE_BOOKS_API_KEY?.trim();
-    
-    // 1. Guard check to see if Cloudflare actually passed the key
-    if (!apiKey) {
-      console.error("CRITICAL: GOOGLE_BOOKS_API_KEY is undefined or empty in Cloudflare bindings.");
-      return c.json({ error: 'Search is temporarily unavailable due to server configuration.' }, 500);
-    }
+    const params = new URLSearchParams({ q: query, maxResults: '20', printType: 'books' });
+    if (apiKey) params.set('key', apiKey);
+    const url = `https://www.googleapis.com/books/v1/volumes?${params.toString()}`;
 
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&key=${apiKey}`;
     const response = await fetch(url);
-    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Google Books API error raw response: ${errorText}`);
-      throw new Error(`Google Books API returned ${response.status}`);
+      console.error(`Google Books API ${response.status}: ${errorText}`);
+      return c.json({ error: 'Search failed', status: response.status }, 502);
     }
-    
+
     const data = await response.json() as { items?: any[] };
-    const results = (data.items || []).map((item: any) => {
+    const seen = new Set<string>();
+    const results: { title: string; author: string; isbn: string | null }[] = [];
+    for (const item of data.items || []) {
       const v = item.volumeInfo || {};
-      return {
-        title: v.title || 'Unknown',
-        author: v.authors?.join(', ') || 'Unknown',
-        isbn: v.industryIdentifiers?.find((id: any) => id.type === 'ISBN_13' || id.type === 'ISBN_10')?.identifier || null,
-      };
-    });
-    
+      const title = v.title;
+      const author = v.authors?.join(', ');
+      // Skip items with no title or author — Google occasionally returns bare records.
+      if (!title || !author) continue;
+      const key = `${title.toLowerCase()}|${author.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const isbn = v.industryIdentifiers?.find(
+        (id: any) => id.type === 'ISBN_13' || id.type === 'ISBN_10'
+      )?.identifier || null;
+      results.push({ title, author, isbn });
+      if (results.length >= 10) break;
+    }
+
     return c.json({ results });
   } catch (error) {
     console.error('Search error:', error);

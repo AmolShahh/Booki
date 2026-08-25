@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import Modal from "./Modal";
 import Button from "./Button";
@@ -31,7 +31,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
   const [isSearching, setIsSearching] = useState(false);
 
   const update = (field: string, value: any) => setAddTabState((prev: any) => ({ ...prev, [field]: value }));
-  const allBooks = Object.values(books).flat();
+  const allBooks = useMemo(() => Object.values(books).flat(), [books]);
 
   const handleSearch = async () => {
     if (!query) return;
@@ -142,8 +142,44 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
   };
 
   const parseGoodreadsCsv = (csvText: string) => {
-    const lines = csvText.split("\n");
-    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
+    // Strip UTF-8 BOM; without this the first header ("Title") never matches.
+    if (csvText.charCodeAt(0) === 0xfeff) csvText = csvText.slice(1);
+
+    // RFC-4180-ish parser: handles quoted fields, "" escapes, and CRLF/LF/CR row endings.
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let field = "";
+    let inQuote = false;
+    for (let i = 0; i < csvText.length; i++) {
+      const ch = csvText[i];
+      if (inQuote) {
+        if (ch === '"') {
+          if (csvText[i + 1] === '"') { field += '"'; i++; }
+          else inQuote = false;
+        } else {
+          field += ch;
+        }
+      } else if (ch === '"') {
+        inQuote = true;
+      } else if (ch === ",") {
+        row.push(field); field = "";
+      } else if (ch === "\n" || ch === "\r") {
+        row.push(field); field = "";
+        if (row.length > 1 || row[0] !== "") rows.push(row);
+        row = [];
+        if (ch === "\r" && csvText[i + 1] === "\n") i++;
+      } else {
+        field += ch;
+      }
+    }
+    if (field !== "" || row.length > 0) { row.push(field); rows.push(row); }
+
+    if (rows.length === 0) {
+      setCsvError("CSV file is empty.");
+      return;
+    }
+
+    const headers = rows[0].map((h) => h.trim());
     const titleIndex = headers.indexOf("Title");
     const authorIndex = headers.indexOf("Author");
     const myRatingIndex = headers.indexOf("My Rating");
@@ -155,28 +191,22 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
       return;
     }
 
-    const newBooks = lines.slice(1).map((line) => {
-      if (!line.trim()) return null;
-      const cols: any = [];
-      let inQuote = false; let col = "";
-      for (const char of line) {
-        if (char === '"') inQuote = !inQuote;
-        else if (char === "," && !inQuote) { cols.push(col.trim().replace(/"/g, "")); col = ""; }
-        else col += char;
-      }
-      cols.push(col.trim().replace(/"/g, ""));
-      if (cols.length <= Math.max(titleIndex, authorIndex, myRatingIndex, shelfIndex, readCountIndex)) return null;
-      const getCol = (i: number) => cols[i] || "";
+    const maxIndex = Math.max(titleIndex, authorIndex, myRatingIndex, shelfIndex, readCountIndex);
+    const newBooks = rows.slice(1).map((cols) => {
+      if (cols.length <= maxIndex) return null;
+      const getCol = (i: number) => (cols[i] ?? "").trim();
       const title = getCol(titleIndex);
       const author = getCol(authorIndex);
+      if (!title || !author) return null;
       const rating = parseInt(getCol(myRatingIndex), 10);
       const shelf = getCol(shelfIndex);
-      const readCount = readCountIndex !== -1 ? parseInt(getCol(readCountIndex), 10) : 1;
+      const readCount = readCountIndex !== -1 ? parseInt(getCol(readCountIndex), 10) || 1 : 1;
       let category = "";
       if (shelf === "to-read") category = "tbr";
       else if (rating >= 4) category = "liked it";
       else if (rating === 3) category = "it was ok";
       else if (rating > 0) category = "didn't like it";
+      else return null;
       return { title, author, category, rating, readCount };
     }).filter(Boolean);
 

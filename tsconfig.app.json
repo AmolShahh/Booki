@@ -23,5 +23,5 @@
     /* Add these for Cloudflare Workers */
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src"]
+  "include": ["src", "_redirects.tx"]
 }
