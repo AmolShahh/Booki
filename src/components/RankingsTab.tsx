@@ -1,29 +1,43 @@
 import React, { useState } from "react";
+import { ArrowUpDown, Bookmark, Tag, Trash2 } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
+import SearchBar from "./SearchBar";
+import CategorySection from "./CategorySection";
+import BookList, { BookListItem } from "./BookList";
+import BookSkeleton from "./BookSkeleton";
+import IconAction from "./IconAction";
+import ActiveTagFilters from "./ActiveTagFilters";
+import TagInput from "./TagInput";
 import { API, authAxios } from "./api";
+import { RANKING_CATEGORIES, CATEGORY_LABEL } from "./bookMeta";
+import { useToast } from "./ToastContext";
 
 interface RankingsTabProps {
   books: any;
   setBooks: React.Dispatch<React.SetStateAction<any>>;
   allTags: string[];
+  loading?: boolean;
 }
 
-const CATEGORIES = ["liked it", "it was ok", "didn't like it"];
+const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags, loading }) => {
+  const { show } = useToast();
 
-const CATEGORY_DOT: Record<string, string> = {
-  "liked it": "bg-emerald-400",
-  "it was ok": "bg-amber-400",
-  "didn't like it": "bg-rose-400",
-};
-
-const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) => {
   const [editingBook, setEditingBook] = useState<any>(null);
   const [tagsInput, setTagsInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const toggleTagFilter = (tag: string) =>
+    setTagFilters((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   const [bookToDelete, setBookToDelete] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Re-rank state (binary-search comparison against the current category).
+  const [rerankingBook, setRerankingBook] = useState<any>(null);
+  const [rerankLow, setRerankLow] = useState(0);
+  const [rerankHigh, setRerankHigh] = useState(0);
+  const [rerankMid, setRerankMid] = useState(0);
 
   const handleEditTags = (book: any) => {
     setEditingBook(book);
@@ -40,10 +54,12 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
         b.id === editingBook.id ? { ...b, tags: tagsInput } : b
       );
       setBooks(updatedBooks);
+      show({ message: `Updated tags for "${editingBook.title}"` });
       setEditingBook(null);
       setTagsInput("");
     } catch (error) {
       console.error("Error saving tags:", error);
+      show({ message: "Failed to save tags" });
     } finally {
       setIsSaving(false);
     }
@@ -52,16 +68,48 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
   const confirmDelete = async () => {
     if (!bookToDelete) return;
     setIsDeleting(true);
+    const snapshot = bookToDelete; // capture for undo
+    const originalCategory = snapshot.category;
+    const originalArr: any[] = books[originalCategory] || [];
+    const originalPosition = originalArr.findIndex((b: any) => b.id === snapshot.id);
     try {
-      await authAxios.delete(`${API}/books/${bookToDelete.id}`);
+      await authAxios.delete(`${API}/books/${snapshot.id}`);
       const updatedBooks = { ...books };
-      updatedBooks[bookToDelete.category] = updatedBooks[bookToDelete.category].filter(
-        (b: any) => b.id !== bookToDelete.id
+      updatedBooks[originalCategory] = updatedBooks[originalCategory].filter(
+        (b: any) => b.id !== snapshot.id
       );
       setBooks(updatedBooks);
       setBookToDelete(null);
+      show({
+        message: `Removed "${snapshot.title}"`,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              const res = await authAxios.post(`${API}/books`, {
+                title: snapshot.title,
+                author: snapshot.author,
+                category: originalCategory,
+                position: originalPosition === -1 ? 0 : originalPosition,
+                tags: snapshot.tags || "",
+              });
+              const restored = { ...snapshot, id: res.data?.id ?? snapshot.id };
+              setBooks((prev: any) => {
+                const arr = [...(prev[originalCategory] || [])];
+                arr.splice(originalPosition === -1 ? arr.length : originalPosition, 0, restored);
+                return { ...prev, [originalCategory]: arr };
+              });
+              show({ message: `Restored "${snapshot.title}"` });
+            } catch (e) {
+              console.error("Undo failed:", e);
+              show({ message: "Undo failed" });
+            }
+          },
+        },
+      });
     } catch (error) {
       console.error("Error deleting book:", error);
+      show({ message: "Failed to remove book" });
     } finally {
       setIsDeleting(false);
     }
@@ -79,181 +127,214 @@ const RankingsTab: React.FC<RankingsTabProps> = ({ books, setBooks, allTags }) =
         b.id === book.id ? { ...b, tags: newTags } : b
       );
       setBooks(updatedBooks);
+      show({ message: `Marked "${book.title}" to reread` });
     } catch (error) {
       console.error("Error adding reread tag:", error);
+      show({ message: "Failed to mark reread" });
     }
   };
 
-  // Single search bar matches title, author, OR any tag
-  const filteredBooks = (category: string) => {
-    const allBooksInCategory = books[category] || [];
-    return allBooksInCategory
-      .map((book: any, index: number) => ({ ...book, originalIndex: index }))
-      .filter((b: any) => {
-        if (!searchQuery) return true;
-        const q = searchQuery.toLowerCase();
-        return (
-          b.title.toLowerCase().includes(q) ||
-          b.author.toLowerCase().includes(q) ||
-          (b.tags || "").toLowerCase().includes(q)
-        );
+  // ── Re-rank ────────────────────────────────────────────────────────────────
+  const startRerank = (book: any) => {
+    const others: any[] = (books[book.category] || []).filter((b: any) => b.id !== book.id);
+    if (others.length === 0) {
+      show({ message: `"${book.title}" is the only book in this category` });
+      return;
+    }
+    setRerankingBook(book);
+    setRerankLow(0);
+    setRerankHigh(others.length);
+    setRerankMid(Math.floor(others.length / 2));
+  };
+
+  const rerankCandidate = () => {
+    if (!rerankingBook) return null;
+    const others: any[] = (books[rerankingBook.category] || []).filter(
+      (b: any) => b.id !== rerankingBook.id
+    );
+    return others[rerankMid];
+  };
+
+  const applyRerank = async (newPosition: number) => {
+    if (!rerankingBook) return;
+    const cat = rerankingBook.category;
+    const others: any[] = (books[cat] || []).filter((b: any) => b.id !== rerankingBook.id);
+    const newOrder = [...others.slice(0, newPosition), rerankingBook, ...others.slice(newPosition)];
+    setBooks({ ...books, [cat]: newOrder });
+    try {
+      await authAxios.put(`${API}/reorder`, {
+        reorderedData: newOrder.map((b: any, i: number) => ({ id: Number(b.id), position: Number(i) })),
       });
+      show({ message: `Re-ranked "${rerankingBook.title}" to #${newPosition + 1} in ${CATEGORY_LABEL[cat] ?? cat}` });
+    } catch (e) {
+      console.error("Rerank persist failed:", e);
+      show({ message: "Failed to save new rank" });
+    }
+    setRerankingBook(null);
+    setRerankLow(0); setRerankHigh(0); setRerankMid(0);
   };
 
-  const handleTagClick = (tag: string) => {
-    const currentTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
-    const newTags = new Set(currentTags);
-    if (newTags.has(tag)) newTags.delete(tag);
-    else newTags.add(tag);
-    setTagsInput(Array.from(newTags).join(", "));
+  const rerankChoose = (newBetter: boolean) => {
+    let newLow = rerankLow;
+    let newHigh = rerankHigh;
+    if (newBetter) newHigh = rerankMid;
+    else newLow = rerankMid + 1;
+    if (newLow >= newHigh) {
+      applyRerank(newLow);
+      return;
+    }
+    setRerankLow(newLow);
+    setRerankHigh(newHigh);
+    setRerankMid(Math.floor((newLow + newHigh) / 2));
   };
 
-  const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
+  const matchesText = (b: any, q: string) => {
+    if (!q) return true;
+    const l = q.toLowerCase();
+    return (
+      b.title.toLowerCase().includes(l) ||
+      b.author.toLowerCase().includes(l) ||
+      (b.tags || "").toLowerCase().includes(l)
+    );
+  };
+  const matchesTags = (b: any, tags: string[]) => {
+    if (tags.length === 0) return true;
+    const bookTags = (b.tags || "").split(",").map((t: string) => t.trim().toLowerCase());
+    return tags.every((t) => bookTags.includes(t.toLowerCase()));
+  };
+  const matches = (b: any) => matchesText(b, searchQuery) && matchesTags(b, tagFilters);
 
   let continuousBookNumber = 0;
+
+  if (loading) {
+    return (
+      <div>
+        <div className="mb-6">
+          <SearchBar value="" onChange={() => {}} />
+        </div>
+        <BookSkeleton count={4} />
+        <BookSkeleton count={3} />
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mb-6">
-        <input
-          placeholder="Search by title, author, or tag…"
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 shadow-sm transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <SearchBar value={searchQuery} onChange={setSearchQuery} />
       </div>
 
-      {CATEGORIES.map((cat) => {
-        const booksInCategory = filteredBooks(cat);
-        const totalBooksInCategory = books[cat]?.length || 0;
+      <ActiveTagFilters
+        tags={tagFilters}
+        onRemove={(t) => setTagFilters((prev) => prev.filter((x) => x !== t))}
+        onClearAll={() => setTagFilters([])}
+        className="-mt-2 mb-4"
+      />
+
+      {RANKING_CATEGORIES.map((cat) => {
+        const all: any[] = books[cat] || [];
+        const filtered = all
+          .map((book, index) => ({ book, index }))
+          .filter(({ book }) => matches(book));
+
         const startIndex = continuousBookNumber;
-        continuousBookNumber += totalBooksInCategory;
+        continuousBookNumber += all.length;
+
+        const items: BookListItem[] = filtered.map(({ book, index }) => {
+          const rank = startIndex + index + 1;
+          const isTop3 = index < 3;
+          const isReread = (book.tags || "").split(",").map((t: string) => t.trim()).includes("to-reread");
+          return {
+            key: book.id,
+            book,
+            rank,
+            isTop3,
+            actions: (
+              <>
+                <IconAction icon={ArrowUpDown} label="Re-rank" onClick={() => startRerank(book)} tone="accent" />
+                <IconAction
+                  icon={Bookmark}
+                  label={isReread ? "Marked to reread" : "Mark to reread"}
+                  onClick={() => handleReread(book)}
+                  disabled={isReread}
+                  active={isReread}
+                  tone="accent"
+                />
+                <IconAction icon={Tag} label="Edit tags" onClick={() => handleEditTags(book)} />
+                <IconAction icon={Trash2} label="Remove" onClick={() => setBookToDelete(book)} tone="danger" />
+              </>
+            ),
+          };
+        });
 
         return (
-          <div key={cat} className="mb-8">
-            <h2 className="mb-4 flex items-center gap-2.5 font-serif text-xl font-semibold text-zinc-50">
-              <span className={`h-2.5 w-2.5 rounded-full ${CATEGORY_DOT[cat]}`} />
-              <span className="capitalize">{cat}</span>
-              <span className="font-sans text-sm font-normal text-zinc-400">
-                {booksInCategory.length} of {totalBooksInCategory}
-              </span>
-            </h2>
-
-            {booksInCategory.length === 0 && totalBooksInCategory === 0 && (
-              <p className="rounded-lg border border-dashed border-zinc-700 p-4 text-sm italic text-zinc-500">
-                No books in this category yet
-              </p>
-            )}
-            {booksInCategory.length === 0 && totalBooksInCategory > 0 && (
-              <p className="rounded-lg border border-dashed border-zinc-700 p-4 text-sm italic text-zinc-500">
-                No books match your search
-              </p>
-            )}
-
-            {booksInCategory.map((book: any) => (
-              <div
-                key={book.id}
-                className="mb-3 rounded-xl border border-zinc-600 bg-zinc-800 p-5 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-750"
-              >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full border border-zinc-600 bg-zinc-700 text-sm font-semibold text-amber-400">
-                        {startIndex + book.originalIndex + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-base font-semibold text-zinc-50">{book.title}</p>
-                        <p className="mt-0.5 text-sm text-zinc-300">{book.author}</p>
-                        {book.tags && (
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {book.tags.split(",").map((tag: string, i: number) => (
-                              <span
-                                key={i}
-                                className="rounded-full border border-zinc-600 bg-zinc-700 px-2.5 py-0.5 text-xs font-medium text-zinc-300"
-                              >
-                                {tag.trim()}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 sm:ml-4 sm:min-w-[150px] sm:flex-shrink-0 sm:flex-col">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleReread(book)}
-                      className="flex-1 sm:flex-none sm:w-full"
-                      disabled={book.tags?.includes("to-reread")}
-                    >
-                      {book.tags?.includes("to-reread") ? "✓ To Reread" : "Reread"}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleEditTags(book)}
-                      className="flex-1 sm:flex-none sm:w-full"
-                    >
-                      Edit Tags
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setBookToDelete(book)}
-                      className="flex-1 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 sm:flex-none sm:w-full"
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <CategorySection
+            key={cat}
+            category={cat}
+            count={filtered.length}
+            totalCount={all.length}
+          >
+            <BookList
+              items={items}
+              onTagClick={toggleTagFilter}
+              activeTags={tagFilters}
+              empty={
+                <p className="rounded-lg border border-dashed border-border-subtle p-4 text-sm italic text-text-muted">
+                  {all.length === 0 ? "No books in this category yet" : "No books match your search"}
+                </p>
+              }
+            />
+          </CategorySection>
         );
       })}
 
       {editingBook && (
         <Modal onClose={() => { setEditingBook(null); setTagsInput(""); }}>
-          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-50">Edit Tags</h2>
+          <h2 className="mb-6 font-serif text-xl font-semibold text-text-primary">Edit tags</h2>
           <div className="mb-4">
-            <p className="font-medium text-zinc-100">{editingBook.title}</p>
-            <p className="text-sm text-zinc-400">{editingBook.author}</p>
+            <p className="font-medium text-text-primary">{editingBook.title}</p>
+            <p className="text-sm text-text-secondary">{editingBook.author}</p>
           </div>
-          <div className="mb-5">
-            <input
-              className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              placeholder="Type new tags or click existing ones…"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-            />
-          </div>
-          <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto pr-2">
-            {allTags.map((tag) => (
-              <Button key={tag} onClick={() => handleTagClick(tag)} variant="tag" active={selectedTags.includes(tag)}>
-                {tag}
-              </Button>
-            ))}
-          </div>
+          <TagInput value={tagsInput} onChange={setTagsInput} allTags={allTags} autoFocus />
           <Button onClick={handleSaveTags} disabled={isSaving} className="mt-6 w-full">
-            {isSaving ? "Saving…" : "Save Tags"}
+            {isSaving ? "Saving…" : "Save tags"}
           </Button>
         </Modal>
       )}
 
       {bookToDelete && (
         <Modal onClose={() => setBookToDelete(null)}>
-          <h2 className="mb-4 font-serif text-xl font-semibold text-zinc-50">Remove book</h2>
-          <p className="mb-6 text-sm text-zinc-300">
+          <h2 className="mb-4 font-serif text-xl font-semibold text-text-primary">Remove book</h2>
+          <p className="mb-6 text-sm text-text-secondary">
             Are you sure you want to remove "
-            <span className="font-medium text-zinc-100">{bookToDelete.title}</span>"? This action cannot be undone.
+            <span className="font-medium text-text-primary">{bookToDelete.title}</span>"? You can undo right after.
           </p>
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setBookToDelete(null)} className="w-full">Cancel</Button>
             <Button variant="danger" onClick={confirmDelete} disabled={isDeleting} className="w-full">
               {isDeleting ? "Removing…" : "Remove"}
             </Button>
+          </div>
+        </Modal>
+      )}
+
+      {rerankingBook && rerankCandidate() && (
+        <Modal onClose={() => { setRerankingBook(null); setRerankLow(0); setRerankHigh(0); setRerankMid(0); }}>
+          <h2 className="mb-1 font-serif text-xl font-semibold text-text-primary">Re-rank</h2>
+          <p className="mb-6 text-sm text-text-muted">Which did you like more?</p>
+          <div className="mb-6 space-y-3">
+            <div className="rounded-xl border border-border-subtle bg-surface-sunken p-5">
+              <p className="font-medium text-text-primary">{rerankCandidate()!.title}</p>
+              <p className="mt-1 text-sm text-text-secondary">by {rerankCandidate()!.author}</p>
+            </div>
+            <div className="rounded-xl border border-accent/30 bg-accent-bg p-5">
+              <p className="font-medium text-text-primary">{rerankingBook.title}</p>
+              <p className="mt-1 text-sm text-text-secondary">by {rerankingBook.author}</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={() => rerankChoose(false)} variant="secondary" className="w-1/2">First book</Button>
+            <Button onClick={() => rerankChoose(true)} variant="primary" className="w-1/2">Second book</Button>
           </div>
         </Modal>
       )}

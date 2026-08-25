@@ -1,15 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { API } from "./api";
-
-const RANKING_CATEGORIES = ["liked it", "it was ok", "didn't like it"] as const;
-
-const CATEGORY_DOT: Record<string, string> = {
-  "liked it": "bg-emerald-400",
-  "it was ok": "bg-amber-400",
-  "didn't like it": "bg-rose-400",
-  tbr: "bg-sky-400",
-};
+import Header from "./Header";
+import SearchBar from "./SearchBar";
+import CategorySection from "./CategorySection";
+import BookList, { BookListItem } from "./BookList";
+import BookSkeleton from "./BookSkeleton";
+import ActiveTagFilters from "./ActiveTagFilters";
+import { RANKING_CATEGORIES } from "./bookMeta";
 
 const PublicView: React.FC = () => {
   const [books, setBooks] = useState<any>({});
@@ -24,137 +22,141 @@ const PublicView: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const stats = useMemo(() => {
+    const ranked = RANKING_CATEGORIES.reduce(
+      (n, cat) => n + ((books[cat] as any[] | undefined)?.length ?? 0),
+      0
+    );
+    const tbr = (books.tbr as any[] | undefined)?.length ?? 0;
+    let reading = 0;
+    Object.values(books).forEach((arr) => {
+      if (!Array.isArray(arr)) return;
+      arr.forEach((b: any) => {
+        const tags = (b.tags || "").toLowerCase();
+        if (tags.includes("currently-reading")) reading += 1;
+      });
+    });
+    return { total: ranked + tbr, tbr, reading };
+  }, [books]);
+
   return (
-    <div className="min-h-screen bg-zinc-950 p-6 text-zinc-100 sm:p-10">
-      <div className="mx-auto max-w-4xl">
-        <header className="mb-10 text-center">
-          <div className="mb-3 inline-flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
-            <span className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">Reading Log</span>
-          </div>
-          <h1 className="font-serif text-4xl font-semibold text-amber-400">Booki</h1>
-          <p className="mt-3 text-sm text-zinc-500">Public read-only view</p>
-        </header>
+    <div className="min-h-screen bg-canvas text-text-primary">
+      <Header
+        tabs={[
+          { key: "rankings", label: "Rankings" },
+          { key: "tbr", label: "TBR" },
+        ]}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+      />
 
-        {/* Tab bar */}
-        <div className="mb-10 flex justify-center gap-1 border-b border-zinc-700">
-          {(["rankings", "tbr"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`relative px-5 py-2.5 text-sm font-medium transition-colors duration-150 ${
-                activeTab === tab ? "text-amber-400" : "text-zinc-400 hover:text-zinc-100"
-              }`}
-            >
-              {tab === "rankings" ? "Rankings" : "TBR"}
-              <span
-                className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-amber-400 transition-opacity duration-150 ${
-                  activeTab === tab ? "opacity-100" : "opacity-0"
-                }`}
-              />
-            </button>
-          ))}
-        </div>
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        {!loading && stats.total > 0 && (
+          <p className="mb-6 text-sm text-text-secondary">
+            <span className="font-medium text-text-primary tabular-nums">{stats.total}</span> books
+            {stats.reading > 0 && (
+              <>
+                {" · "}
+                <span className="tabular-nums">{stats.reading}</span> currently reading
+              </>
+            )}
+            {stats.tbr > 0 && (
+              <>
+                {" · "}
+                <span className="tabular-nums">{stats.tbr}</span> to read
+              </>
+            )}
+          </p>
+        )}
 
-        <div className="mx-auto max-w-2xl">
-          {loading ? (
-            <p className="text-center text-sm text-zinc-500">Loading…</p>
-          ) : activeTab === "rankings" ? (
-            <PublicRankings books={books} />
-          ) : (
-            <PublicTbr books={books} />
-          )}
-        </div>
-      </div>
+        {loading ? (
+          <>
+            <BookSkeleton count={4} />
+            <BookSkeleton count={3} />
+          </>
+        ) : activeTab === "rankings" ? (
+          <PublicRankings books={books} />
+        ) : (
+          <PublicTbr books={books} />
+        )}
+      </main>
     </div>
   );
 };
 
 // ── Read-only Rankings ────────────────────────────────────────────────────────
 
+const matchesText = (b: any, q: string) => {
+  if (!q) return true;
+  const l = q.toLowerCase();
+  return (
+    b.title.toLowerCase().includes(l) ||
+    b.author.toLowerCase().includes(l) ||
+    (b.tags || "").toLowerCase().includes(l)
+  );
+};
+
+const matchesTags = (b: any, tags: string[]) => {
+  if (tags.length === 0) return true;
+  const bookTags = (b.tags || "").split(",").map((t: string) => t.trim().toLowerCase());
+  return tags.every((t) => bookTags.includes(t.toLowerCase()));
+};
+
 const PublicRankings: React.FC<{ books: any }> = ({ books }) => {
   const [search, setSearch] = useState("");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const toggleTag = (tag: string) =>
+    setTagFilters((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
 
   let continuousIndex = 0;
 
   return (
     <div>
       <div className="mb-6">
-        <input
-          placeholder="Search by title, author, or tag…"
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <SearchBar value={search} onChange={setSearch} />
       </div>
+
+      <ActiveTagFilters
+        tags={tagFilters}
+        onRemove={(t) => setTagFilters((prev) => prev.filter((x) => x !== t))}
+        onClearAll={() => setTagFilters([])}
+        className="-mt-2 mb-4"
+      />
 
       {RANKING_CATEGORIES.map((cat) => {
         const all: any[] = books[cat] || [];
         const filtered = all
-          .map((b, i) => ({ ...b, originalIndex: i }))
-          .filter((b) => {
-            if (!search) return true;
-            const q = search.toLowerCase();
-            return (
-              b.title.toLowerCase().includes(q) ||
-              b.author.toLowerCase().includes(q) ||
-              (b.tags || "").toLowerCase().includes(q)
-            );
-          });
+          .map((book, index) => ({ book, index }))
+          .filter(({ book }) => matchesText(book, search) && matchesTags(book, tagFilters));
 
         const startIndex = continuousIndex;
         continuousIndex += all.length;
 
+        const items: BookListItem[] = filtered.map(({ book, index }) => ({
+          key: book.id,
+          book,
+          rank: startIndex + index + 1,
+          isTop3: index < 3,
+        }));
+
         return (
-          <div key={cat} className="mb-8">
-            <h2 className="mb-4 flex items-center gap-2.5 font-serif text-xl font-semibold text-zinc-50">
-              <span className={`h-2.5 w-2.5 rounded-full ${CATEGORY_DOT[cat]}`} />
-              <span className="capitalize">{cat}</span>
-              <span className="font-sans text-sm font-normal text-zinc-400">
-                {filtered.length} of {all.length}
-              </span>
-            </h2>
-
-            {all.length === 0 && (
-              <p className="rounded-lg border border-dashed border-zinc-700 p-4 text-sm italic text-zinc-500">
-                No books in this category yet
-              </p>
-            )}
-            {all.length > 0 && filtered.length === 0 && (
-              <p className="rounded-lg border border-dashed border-zinc-700 p-4 text-sm italic text-zinc-500">
-                No books match your search
-              </p>
-            )}
-
-            {filtered.map((book) => (
-              <div
-                key={book.id}
-                className="mb-3 rounded-xl border border-zinc-600 bg-zinc-800 p-5"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full border border-zinc-600 bg-zinc-700 text-sm font-semibold text-amber-400">
-                    {startIndex + book.originalIndex + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-base font-semibold text-zinc-50">{book.title}</p>
-                    <p className="mt-0.5 text-sm text-zinc-300">{book.author}</p>
-                    {book.tags && (
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {book.tags.split(",").map((tag: string, i: number) => (
-                          <span
-                            key={i}
-                            className="rounded-full border border-zinc-600 bg-zinc-700 px-2.5 py-0.5 text-xs font-medium text-zinc-300"
-                          >
-                            {tag.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <CategorySection
+            key={cat}
+            category={cat}
+            count={filtered.length}
+            totalCount={all.length}
+          >
+            <BookList
+              items={items}
+              onTagClick={toggleTag}
+              activeTags={tagFilters}
+              empty={
+                <p className="rounded-lg border border-dashed border-border-subtle p-4 text-sm italic text-text-muted">
+                  {all.length === 0 ? "No books in this category yet" : "No books match your search"}
+                </p>
+              }
+            />
+          </CategorySection>
         );
       })}
     </div>
@@ -165,77 +167,50 @@ const PublicRankings: React.FC<{ books: any }> = ({ books }) => {
 
 const PublicTbr: React.FC<{ books: any }> = ({ books }) => {
   const [search, setSearch] = useState("");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const toggleTag = (tag: string) =>
+    setTagFilters((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
 
-  const all: any[] = books["tbr"] || [];
-  const filtered = all.filter((b) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      b.title.toLowerCase().includes(q) ||
-      b.author.toLowerCase().includes(q) ||
-      (b.tags || "").toLowerCase().includes(q)
-    );
-  });
+  const all: any[] = books.tbr || [];
+  const filtered = all
+    .map((book, index) => ({ book, index }))
+    .filter(({ book }) => matchesText(book, search) && matchesTags(book, tagFilters));
+
+  const items: BookListItem[] = filtered.map(({ book, index }) => ({
+    key: book.id,
+    book,
+    rank: index + 1,
+  }));
 
   return (
     <div>
       <div className="mb-6">
-        <input
-          placeholder="Search by title, author, or tag…"
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+        <SearchBar value={search} onChange={setSearch} />
+      </div>
+
+      <ActiveTagFilters
+        tags={tagFilters}
+        onRemove={(t) => setTagFilters((prev) => prev.filter((x) => x !== t))}
+        onClearAll={() => setTagFilters([])}
+        className="-mt-2 mb-4"
+      />
+
+      <CategorySection
+        category="tbr"
+        count={filtered.length}
+        totalCount={all.length}
+      >
+        <BookList
+          items={items}
+          onTagClick={toggleTag}
+          activeTags={tagFilters}
+          empty={
+            <p className="rounded-lg border border-dashed border-border-subtle p-4 text-sm italic text-text-muted">
+              {all.length === 0 ? "No books in the TBR list yet" : "No books match your search"}
+            </p>
+          }
         />
-      </div>
-
-      <div className="mb-4 flex items-center gap-2.5">
-        <span className={`h-2.5 w-2.5 rounded-full ${CATEGORY_DOT["tbr"]}`} />
-        <h2 className="font-serif text-xl font-semibold text-zinc-50">TBR</h2>
-        <span className="font-sans text-sm font-normal text-zinc-400">
-          {filtered.length} of {all.length} books
-        </span>
-      </div>
-
-      {all.length === 0 && (
-        <p className="rounded-lg border border-dashed border-zinc-700 p-4 text-sm italic text-zinc-500">
-          No books in the TBR list yet
-        </p>
-      )}
-
-      <div className="space-y-3">
-        {filtered.map((book, index) => (
-          <div
-            key={book.id}
-            className="rounded-xl border border-zinc-600 bg-zinc-800 p-5"
-          >
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full border border-zinc-600 bg-zinc-700 text-sm font-semibold text-amber-400">
-                {index + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="break-words text-base font-semibold text-zinc-50">{book.title}</p>
-                <p className="mt-0.5 text-sm text-zinc-300">{book.author}</p>
-                {book.tags && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {book.tags.split(",").map((tag: string, i: number) => (
-                      <span
-                        key={i}
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          tag.trim() === "currently-reading"
-                            ? "border border-sky-500/40 bg-sky-500/20 text-sky-300"
-                            : "border border-zinc-600 bg-zinc-700 text-zinc-300"
-                        }`}
-                      >
-                        {tag.trim()}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      </CategorySection>
     </div>
   );
 };

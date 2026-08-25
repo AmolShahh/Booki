@@ -1,28 +1,34 @@
 import React, { useState } from "react";
+import { BookOpen, ArrowUpRight, Tag, Trash2, GripVertical } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
+import SearchBar from "./SearchBar";
+import CategorySection from "./CategorySection";
+import BookList, { BookListItem } from "./BookList";
+import BookSkeleton from "./BookSkeleton";
+import IconAction from "./IconAction";
+import ActiveTagFilters from "./ActiveTagFilters";
+import TagInput from "./TagInput";
 import { API, authAxios } from "./api";
+import { useToast } from "./ToastContext";
 
 interface TbrTabProps {
   books: any;
   setBooks: React.Dispatch<React.SetStateAction<any>>;
   allTags: string[];
+  loading?: boolean;
 }
 
-const CATEGORIES = ["tbr"];
 const RANKING_CATEGORIES = ["liked it", "it was ok", "didn't like it"];
 
-const CATEGORY_DOT: Record<string, string> = {
-  "liked it": "bg-emerald-400",
-  "it was ok": "bg-amber-400",
-  "didn't like it": "bg-rose-400",
-  tbr: "bg-sky-400",
-};
-
-const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
+const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags, loading }) => {
+  const { show } = useToast();
   const [editingBook, setEditingBook] = useState<any>(null);
   const [tagsInput, setTagsInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const toggleTagFilter = (tag: string) =>
+    setTagFilters((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   const [bookToDelete, setBookToDelete] = useState<any>(null);
   const [draggedItem, setDraggedItem] = useState<any>(null);
   const [scrollInterval, setScrollInterval] = useState<number | null>(null);
@@ -55,10 +61,12 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         b.id === editingBook.id ? { ...b, tags: tagsInput } : b
       );
       setBooks(updatedBooks);
+      show({ message: `Updated tags for "${editingBook.title}"` });
       setEditingBook(null);
       setTagsInput("");
     } catch (error) {
       console.error("Error saving tags:", error);
+      show({ message: "Failed to save tags" });
     } finally {
       setIsSaving(false);
     }
@@ -67,16 +75,48 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
   const confirmDelete = async () => {
     if (!bookToDelete) return;
     setIsDeleting(true);
+    const snapshot = bookToDelete;
+    const originalCategory = snapshot.category;
+    const originalArr: any[] = books[originalCategory] || [];
+    const originalPosition = originalArr.findIndex((b: any) => b.id === snapshot.id);
     try {
-      await authAxios.delete(`${API}/books/${bookToDelete.id}`);
+      await authAxios.delete(`${API}/books/${snapshot.id}`);
       const updatedBooks = { ...books };
-      updatedBooks[bookToDelete.category] = updatedBooks[bookToDelete.category].filter(
-        (b: any) => b.id !== bookToDelete.id
+      updatedBooks[originalCategory] = updatedBooks[originalCategory].filter(
+        (b: any) => b.id !== snapshot.id
       );
       setBooks(updatedBooks);
       setBookToDelete(null);
+      show({
+        message: `Removed "${snapshot.title}"`,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              const res = await authAxios.post(`${API}/books`, {
+                title: snapshot.title,
+                author: snapshot.author,
+                category: originalCategory,
+                position: originalPosition === -1 ? 0 : originalPosition,
+                tags: snapshot.tags || "",
+              });
+              const restored = { ...snapshot, id: res.data?.id ?? snapshot.id };
+              setBooks((prev: any) => {
+                const arr = [...(prev[originalCategory] || [])];
+                arr.splice(originalPosition === -1 ? arr.length : originalPosition, 0, restored);
+                return { ...prev, [originalCategory]: arr };
+              });
+              show({ message: `Restored "${snapshot.title}"` });
+            } catch (e) {
+              console.error("Undo failed:", e);
+              show({ message: "Undo failed" });
+            }
+          },
+        },
+      });
     } catch (error) {
       console.error("Error deleting book:", error);
+      show({ message: "Failed to remove book" });
     } finally {
       setIsDeleting(false);
     }
@@ -96,8 +136,10 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         b.id === book.id ? { ...b, tags: newTags } : b
       );
       setBooks(updatedBooks);
+      show({ message: tagsArray.includes("currently-reading") ? `Unmarked "${book.title}" as currently reading` : `Marked "${book.title}" as currently reading` });
     } catch (error) {
       console.error("Error toggling currently-reading tag:", error);
+      show({ message: "Failed to update" });
     } finally {
       setReadingId(null);
     }
@@ -110,9 +152,6 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     setShowMoveModal(true);
   };
 
-  // Insert into the new category first, then remove from TBR — never the other way
-  // around. The previous order lost the book entirely if the POST failed or the
-  // user closed the comparison modal before it completed.
   const insertIntoCategoryAndDeleteTbr = async (position: number) => {
     const res = await authAxios.post(`${API}/books`, {
       title: movingBook.title, author: movingBook.author,
@@ -136,8 +175,10 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         updatedBooks.tbr = (updatedBooks.tbr || []).filter((b: any) => b.id !== movingBook.id);
         updatedBooks[selectedCategory] = [{ ...movingBook, id: newId ?? movingBook.id, tags: moveTagsInput, category: selectedCategory }];
         setBooks(updatedBooks);
+        show({ message: `Moved "${movingBook.title}" to ${selectedCategory}` });
       } catch (error) {
         console.error("Error moving book:", error);
+        show({ message: "Failed to move book" });
         setIsMoving(false);
         return;
       }
@@ -174,8 +215,10 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
         updatedBooks.tbr = (updatedBooks.tbr || []).filter((b: any) => b.id !== movingBook.id);
         updatedBooks[selectedCategory] = updated;
         setBooks(updatedBooks);
+        show({ message: `Moved "${movingBook.title}" to ${selectedCategory} at #${position + 1}` });
       } catch (error) {
         console.error("Error moving book:", error);
+        show({ message: "Failed to move book" });
         return;
       }
       setMovingBook(null); setLow(0); setHigh(0); setMidIndex(0); setShowComparisonModal(false);
@@ -191,45 +234,30 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     return arr[midIndex];
   };
 
-  // Single search bar: title, author, or tag
-  const filteredBooks = (category: string) => {
-    return (books[category] || []).filter((b: any) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        b.title.toLowerCase().includes(q) ||
-        b.author.toLowerCase().includes(q) ||
-        (b.tags || "").toLowerCase().includes(q)
-      );
-    });
+  const matchesText = (b: any, q: string) => {
+    if (!q) return true;
+    const l = q.toLowerCase();
+    return (
+      b.title.toLowerCase().includes(l) ||
+      b.author.toLowerCase().includes(l) ||
+      (b.tags || "").toLowerCase().includes(l)
+    );
   };
-
-  const handleTagClick = (tag: string) => {
-    const currentTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
-    const newTags = new Set(currentTags);
-    if (newTags.has(tag)) newTags.delete(tag);
-    else newTags.add(tag);
-    setTagsInput(Array.from(newTags).join(", "));
+  const matchesTags = (b: any, tags: string[]) => {
+    if (tags.length === 0) return true;
+    const bookTags = (b.tags || "").split(",").map((t: string) => t.trim().toLowerCase());
+    return tags.every((t) => bookTags.includes(t.toLowerCase()));
   };
+  const matches = (b: any) => matchesText(b, searchQuery) && matchesTags(b, tagFilters);
 
-  const handleMoveTagClick = (tag: string) => {
-    const currentTags = moveTagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
-    const newTags = new Set(currentTags);
-    if (newTags.has(tag)) newTags.delete(tag);
-    else newTags.add(tag);
-    setMoveTagsInput(Array.from(newTags).join(", "));
-  };
 
-  const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
-  const selectedMoveTags = moveTagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
-
-  // Drag and Drop
-  const handleDragStart = (e: any, book: any) => {
+  // ── Drag and Drop ──────────────────────────────────────────────────────────
+  const handleDragStart = (e: React.DragEvent, book: any) => {
     setDraggedItem(book);
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e: any) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     const scrollThreshold = 100;
     const scrollSpeed = 12;
@@ -248,7 +276,7 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     setScrollInterval(interval);
   };
 
-  const handleDrop = async (e: any, droppedOnBook: any) => {
+  const handleDrop = async (e: React.DragEvent, droppedOnBook: any) => {
     e.preventDefault();
     if (scrollInterval) { clearInterval(scrollInterval); setScrollInterval(null); }
     if (!draggedItem || draggedItem.id === droppedOnBook.id) { setDraggedItem(null); return; }
@@ -271,115 +299,103 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
     setDraggedItem(null);
   };
 
-  let continuousBookNumber = 0;
+  const all: any[] = books.tbr || [];
+  const filtered = all
+    .map((book: any, index: number) => ({ book, index }))
+    .filter(({ book }: any) => matches(book));
+
+  const items: BookListItem[] = filtered.map(({ book, index }: any) => {
+    const isReading = (book.tags || "").split(",").map((t: string) => t.trim()).includes("currently-reading");
+    return {
+      key: book.id,
+      book,
+      rank: index + 1,
+      isTop3: false,
+      isDragging: draggedItem?.id === book.id,
+      prefix: (
+        <span
+          className="mt-1.5 flex-none cursor-grab select-none text-text-muted hover:text-text-primary active:cursor-grabbing"
+          title="Drag to reorder"
+        >
+          <GripVertical size={14} />
+        </span>
+      ),
+      wrapperProps: {
+        draggable: true,
+        onDragStart: (e: React.DragEvent<HTMLDivElement>) => handleDragStart(e, book),
+        onDragOver: handleDragOver,
+        onDrop: (e: React.DragEvent<HTMLDivElement>) => handleDrop(e, book),
+        onDragEnd: handleDragEnd,
+      },
+      actions: (
+        <>
+          <IconAction
+            icon={BookOpen}
+            label={isReading ? "Currently reading" : "Mark currently reading"}
+            onClick={() => handleMarkCurrentlyReading(book)}
+            disabled={readingId === book.id}
+            active={isReading}
+            tone="accent"
+          />
+          <IconAction icon={ArrowUpRight} label="Move to read" onClick={() => handleMoveToRead(book)} tone="success" />
+          <IconAction icon={Tag} label="Edit tags" onClick={() => handleEditTags(book)} />
+          <IconAction icon={Trash2} label="Remove" onClick={() => setBookToDelete(book)} tone="danger" />
+        </>
+      ),
+    };
+  });
+
+  if (loading) {
+    return (
+      <div>
+        <div className="mb-6">
+          <SearchBar value="" onChange={() => {}} />
+        </div>
+        <BookSkeleton count={6} />
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mb-6">
-        <input
-          placeholder="Search by title, author, or tag…"
-          className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 shadow-sm transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <SearchBar value={searchQuery} onChange={setSearchQuery} />
       </div>
 
-      {CATEGORIES.map((cat) => {
-        const booksInCategory = filteredBooks(cat);
-        const startIndex = continuousBookNumber + 1;
-        continuousBookNumber += booksInCategory.length;
+      <ActiveTagFilters
+        tags={tagFilters}
+        onRemove={(t) => setTagFilters((prev) => prev.filter((x) => x !== t))}
+        onClearAll={() => setTagFilters([])}
+        className="-mt-2 mb-4"
+      />
 
-        return (
-          <div key={cat} className="mb-8">
-            <h2 className="mb-4 flex items-center gap-2.5 font-serif text-xl font-semibold text-zinc-50">
-              <span className={`h-2.5 w-2.5 rounded-full ${CATEGORY_DOT[cat]}`} />
-              <span>{cat.toUpperCase()}</span>
-              <span className="font-sans text-sm font-normal text-zinc-400">{booksInCategory.length} books</span>
-            </h2>
-
-            {booksInCategory.length === 0 && (
-              <p className="rounded-lg border border-dashed border-zinc-700 p-4 text-sm italic text-zinc-500">
-                No books in this category
-              </p>
-            )}
-
-            <div className="space-y-3">
-              {booksInCategory.map((book: any, index: number) => (
-                <div
-                  key={book.id}
-                  draggable="true"
-                  onDragStart={(e) => handleDragStart(e, book)}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, book)}
-                  onDragEnd={handleDragEnd}
-                  className={`
-                    rounded-xl border border-zinc-600 bg-zinc-800 p-5
-                    transition-colors duration-150 cursor-grab active:cursor-grabbing
-                    ${draggedItem?.id === book.id ? "opacity-30" : "hover:border-zinc-500"}
-                  `}
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start gap-3">
-                        <span className="mt-1 flex-none select-none text-sm leading-none text-zinc-500" title="Drag to reorder">⠿</span>
-                        <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full border border-zinc-600 bg-zinc-700 text-sm font-semibold text-amber-400">
-                          {startIndex + index}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words text-base font-semibold text-zinc-50">{book.title}</p>
-                          <p className="mt-0.5 text-sm text-zinc-300">{book.author}</p>
-                          {book.tags && (
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                              {book.tags.split(",").map((tag: string, i: number) => (
-                                <span
-                                  key={i}
-                                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                    tag.trim() === "currently-reading"
-                                      ? "border border-sky-500/40 bg-sky-500/20 text-sky-300"
-                                      : "border border-zinc-600 bg-zinc-700 text-zinc-300"
-                                  }`}
-                                >
-                                  {tag.trim()}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 sm:ml-4 sm:min-w-[180px] sm:flex-shrink-0 sm:flex-col">
-                      <Button variant="success" size="sm" onClick={() => handleMoveToRead(book)} className="flex-1 whitespace-nowrap sm:flex-none sm:w-full">
-                        Move to Read
-                      </Button>
-                      <Button variant="secondary" size="sm" onClick={() => handleMarkCurrentlyReading(book)} disabled={readingId === book.id} className="flex-1 whitespace-nowrap sm:flex-none sm:w-full">
-                        {book.tags?.includes("currently-reading") ? "✓ Reading" : "Currently Reading"}
-                      </Button>
-                      <Button variant="secondary" size="sm" onClick={() => handleEditTags(book)} className="flex-1 whitespace-nowrap sm:flex-none sm:w-full">
-                        Edit Tags
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setBookToDelete(book)} className="flex-1 whitespace-nowrap text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 sm:flex-none sm:w-full">
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+      <CategorySection
+        category="tbr"
+        count={filtered.length}
+        totalCount={all.length}
+      >
+        <BookList
+          items={items}
+          onTagClick={toggleTagFilter}
+          activeTags={tagFilters}
+          empty={
+            <p className="rounded-lg border border-dashed border-border-subtle p-4 text-sm italic text-text-muted">
+              {all.length === 0 ? "No books in your TBR yet" : "No books match your search"}
+            </p>
+          }
+        />
+      </CategorySection>
 
       {/* Move to Read Modal */}
       {showMoveModal && movingBook && (
         <Modal onClose={() => { setShowMoveModal(false); setMovingBook(null); }}>
-          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-50">Move to Read</h2>
-          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-            <p className="font-medium text-zinc-100">{movingBook.title}</p>
-            <p className="mt-1 text-sm text-zinc-400">by {movingBook.author}</p>
+          <h2 className="mb-6 font-serif text-xl font-semibold text-text-primary">Move to read</h2>
+          <div className="mb-4 rounded-lg border border-accent/30 bg-accent-bg p-4">
+            <p className="font-medium text-text-primary">{movingBook.title}</p>
+            <p className="mt-1 text-sm text-text-secondary">by {movingBook.author}</p>
           </div>
           <div className="mb-6">
-            <p className="mb-3 text-sm font-medium text-zinc-300">Category:</p>
+            <p className="mb-3 text-sm font-medium text-text-secondary">Category:</p>
             <div className="flex flex-wrap gap-2">
               {RANKING_CATEGORIES.map((c) => (
                 <Button key={c} onClick={() => setSelectedCategory(c)} variant={selectedCategory === c ? "primary" : "secondary"} size="sm">{c}</Button>
@@ -387,21 +403,11 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
             </div>
           </div>
           <div className="mb-6">
-            <p className="mb-2 text-sm font-medium text-zinc-300">Tags (optional):</p>
-            <input
-              className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              placeholder="Type tags or click existing ones…"
-              value={moveTagsInput}
-              onChange={(e) => setMoveTagsInput(e.target.value)}
-            />
-            <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto pr-2">
-              {allTags.map((tag) => (
-                <Button key={tag} onClick={() => handleMoveTagClick(tag)} variant="tag" active={selectedMoveTags.includes(tag)}>{tag}</Button>
-              ))}
-            </div>
+            <p className="mb-2 text-sm font-medium text-text-secondary">Tags (optional):</p>
+            <TagInput value={moveTagsInput} onChange={setMoveTagsInput} allTags={allTags} />
           </div>
           <Button onClick={confirmMoveToRead} disabled={isMoving} className="w-full">
-            {isMoving ? "Moving…" : "Confirm & Compare"}
+            {isMoving ? "Moving…" : "Confirm & compare"}
           </Button>
         </Modal>
       )}
@@ -409,20 +415,20 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       {/* Comparison Modal */}
       {showComparisonModal && currentComparison() && movingBook && (
         <Modal onClose={() => { setShowComparisonModal(false); setMovingBook(null); setLow(0); setHigh(0); setMidIndex(0); }}>
-          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-50">Which did you like more?</h2>
+          <h2 className="mb-6 font-serif text-xl font-semibold text-text-primary">Which did you like more?</h2>
           <div className="mb-6 space-y-3">
-            <div className="rounded-xl border border-zinc-600 bg-zinc-900 p-5">
-              <p className="font-medium text-zinc-100">{currentComparison().title}</p>
-              <p className="mt-1 text-sm text-zinc-400">by {currentComparison().author}</p>
+            <div className="rounded-xl border border-border-subtle bg-surface-sunken p-5">
+              <p className="font-medium text-text-primary">{currentComparison().title}</p>
+              <p className="mt-1 text-sm text-text-secondary">by {currentComparison().author}</p>
             </div>
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
-              <p className="font-medium text-zinc-100">{movingBook.title}</p>
-              <p className="mt-1 text-sm text-zinc-400">by {movingBook.author}</p>
+            <div className="rounded-xl border border-accent/30 bg-accent-bg p-5">
+              <p className="font-medium text-text-primary">{movingBook.title}</p>
+              <p className="mt-1 text-sm text-text-secondary">by {movingBook.author}</p>
             </div>
           </div>
           <div className="flex gap-3">
-            <Button onClick={() => handleComparison(false)} variant="secondary" className="w-1/2">First Book</Button>
-            <Button onClick={() => handleComparison(true)} variant="primary" className="w-1/2">Second Book</Button>
+            <Button onClick={() => handleComparison(false)} variant="secondary" className="w-1/2">First book</Button>
+            <Button onClick={() => handleComparison(true)} variant="primary" className="w-1/2">Second book</Button>
           </div>
         </Modal>
       )}
@@ -430,26 +436,14 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       {/* Edit Tags Modal */}
       {editingBook && (
         <Modal onClose={() => { setEditingBook(null); setTagsInput(""); }}>
-          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-50">Edit Tags</h2>
+          <h2 className="mb-6 font-serif text-xl font-semibold text-text-primary">Edit tags</h2>
           <div className="mb-4">
-            <p className="font-medium text-zinc-100">{editingBook.title}</p>
-            <p className="text-sm text-zinc-400">{editingBook.author}</p>
+            <p className="font-medium text-text-primary">{editingBook.title}</p>
+            <p className="text-sm text-text-secondary">{editingBook.author}</p>
           </div>
-          <div className="mb-5">
-            <input
-              className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              placeholder="Type tags or click existing ones…"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-            />
-          </div>
-          <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto pr-2">
-            {allTags.map((tag) => (
-              <Button key={tag} onClick={() => handleTagClick(tag)} variant="tag" active={selectedTags.includes(tag)}>{tag}</Button>
-            ))}
-          </div>
+          <TagInput value={tagsInput} onChange={setTagsInput} allTags={allTags} autoFocus />
           <Button onClick={handleSaveTags} disabled={isSaving} className="mt-6 w-full">
-            {isSaving ? "Saving…" : "Save Tags"}
+            {isSaving ? "Saving…" : "Save tags"}
           </Button>
         </Modal>
       )}
@@ -457,10 +451,10 @@ const TbrTab: React.FC<TbrTabProps> = ({ books, setBooks, allTags }) => {
       {/* Delete Modal */}
       {bookToDelete && (
         <Modal onClose={() => setBookToDelete(null)}>
-          <h2 className="mb-4 font-serif text-xl font-semibold text-zinc-50">Remove book</h2>
-          <p className="mb-6 text-sm text-zinc-300">
+          <h2 className="mb-4 font-serif text-xl font-semibold text-text-primary">Remove book</h2>
+          <p className="mb-6 text-sm text-text-secondary">
             Are you sure you want to remove "
-            <span className="font-medium text-zinc-100">{bookToDelete.title}</span>"? This action cannot be undone.
+            <span className="font-medium text-text-primary">{bookToDelete.title}</span>"? This action cannot be undone.
           </p>
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setBookToDelete(null)} className="w-full">Cancel</Button>

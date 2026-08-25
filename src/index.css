@@ -1,124 +1,160 @@
 @import "tailwindcss";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
-:root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* ── Design tokens ────────────────────────────────────────────────────────────
+   Semantic colors are declared in @theme so Tailwind generates utilities
+   (bg-canvas, text-primary, border-subtle, etc). The actual values live in
+   CSS custom properties on :root and [data-theme="dark"], so flipping the
+   `data-theme` attribute on <html> swaps the whole palette without a rebuild.
+   ─────────────────────────────────────────────────────────────────────────── */
 
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino,
+    Georgia, "Times New Roman", serif;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-cat-liked: var(--cat-liked);
+  --color-cat-ok: var(--cat-ok);
+  --color-cat-disliked: var(--cat-disliked);
+  --color-cat-tbr: var(--cat-tbr);
+  --color-cat-reread: var(--cat-reread);
+}
+
+:root,
+[data-theme="light"] {
   color-scheme: light;
-  color: #374151;
-  background-color: #fef3e2;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --canvas: #faf7f0;
+  --surface: #ffffff;
+  --surface-hover: #f4efe4;
+  --surface-sunken: #f4efe4;
+  --border-subtle: #ebe4d4;
+  --border-strong: #d6cdb8;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #a8a29e;
+
+  --accent: #b45309;       /* amber-700, deeper for light bg contrast */
+  --accent-hover: #92400e; /* amber-800 */
+  --accent-bg: rgb(180 83 9 / 0.12);
+  --accent-fg: #ffffff;
+
+  --cat-liked: #059669;    /* emerald-600 */
+  --cat-ok: #d97706;       /* amber-600 */
+  --cat-disliked: #e11d48; /* rose-600 */
+  --cat-tbr: #0284c7;      /* sky-600 */
+  --cat-reread: #7c3aed;   /* violet-600 */
 }
 
-* {
-  box-sizing: border-box;
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #0c0a09;       /* stone-950 */
+  --surface: #1c1917;      /* stone-900 */
+  --surface-hover: #292524;/* stone-800 */
+  --surface-sunken: #0c0a09;
+  --border-subtle: #292524;/* stone-800 */
+  --border-strong: #44403c;/* stone-700 */
+  --text-primary: #f5f5f4; /* stone-100 */
+  --text-secondary: #a8a29e; /* stone-400 */
+  --text-muted: #78716c;   /* stone-500 */
+
+  --accent: #fbbf24;       /* amber-400 */
+  --accent-hover: #fcd34d; /* amber-300 */
+  --accent-bg: rgb(251 191 36 / 0.15);
+  --accent-fg: #0c0a09;
+
+  --cat-liked: #34d399;    /* emerald-400 */
+  --cat-ok: #fbbf24;       /* amber-400 */
+  --cat-disliked: #fb7185; /* rose-400 */
+  --cat-tbr: #38bdf8;      /* sky-400 */
+  --cat-reread: #a78bfa;   /* violet-400 */
 }
 
-a {
-  font-weight: 500;
-  color: #f97316;
-  text-decoration: inherit;
-  transition: color 0.2s;
-}
-
-a:hover {
-  color: #ea580c;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #fef3e2 0%, #ffedd5 100%);
-}
-
-#root {
-  width: 100%;
-}
-
-h1 {
-  font-size: 2.5rem;
-  line-height: 1.2;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-button {
-  font-family: inherit;
-  cursor: pointer;
-  user-select: none;
-}
-
-button:focus-visible {
-  outline: 2px solid #f97316;
-  outline-offset: 2px;
-}
-
-/* Custom animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+@layer base {
+  * {
+    box-sizing: border-box;
   }
-  to {
-    opacity: 1;
+
+  html,
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--canvas);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-synthesis: none;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  input:focus {
+    outline: none;
   }
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.2s ease-out;
-}
-
-.animate-slideUp {
-  animation: slideUp 0.3s ease-out;
-}
-
-/* Custom scrollbar */
+/* Custom scrollbar — inherits theme colors */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f3f4f6;
-  border-radius: 10px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #f97316;
+  background: var(--border-strong);
   border-radius: 10px;
+  border: 2px solid var(--canvas);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #ea580c;
+  background: var(--text-muted);
 }
 
-/* Input focus styles */
-input:focus {
-  outline: none;
+/* ── Motion ────────────────────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* Smooth transitions for interactive elements */
-button, a, input {
-  transition: all 0.2s ease;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.15s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.2s ease-out;
 }

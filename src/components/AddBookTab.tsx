@@ -1,8 +1,11 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import axios from "axios";
+import { Plus, Check, Upload, PenLine, X } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
+import TagInput from "./TagInput";
 import { API, authAxios } from "./api";
+import { useToast } from "./ToastContext";
 
 interface AddBookTabProps {
   books: any;
@@ -15,6 +18,7 @@ interface AddBookTabProps {
 const CATEGORIES = ["liked it", "it was ok", "didn't like it", "tbr"];
 
 const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, setAddTabState, allTags }) => {
+  const { show } = useToast();
   const {
     query, results, addingBook, selectedCategory, tagsInput,
     low, high, midIndex, showAddModal, showComparisonModal, isComparing,
@@ -53,13 +57,6 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
     update("showAddModal", true);
   };
 
-  const handleTagClick = (tag: string) => {
-    const currentTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
-    const newTags = new Set(currentTags);
-    if (newTags.has(tag)) newTags.delete(tag);
-    else newTags.add(tag.toLowerCase());
-    update("tagsInput", Array.from(newTags).join(", "));
-  };
 
   const confirmAddBook = async () => {
     setIsProcessing(true);
@@ -72,6 +69,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
       updated.splice(updated.length, 0, { ...addingBook, tags: tagsInput });
       setBooks({ ...books, [selectedCategory]: updated });
       await authAxios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position: updated.length - 1, tags: tagsInput });
+      show({ message: `Added "${addingBook.title}" to TBR` });
       setAddTabState((prev: any) => ({ ...prev, addingBook: null, showAddModal: false, showComparisonModal: false, isComparing: false }));
       setIsProcessing(false);
       return;
@@ -79,6 +77,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
       update("showAddModal", false);
       setBooks({ ...books, [selectedCategory]: [{ ...addingBook, tags: tagsInput }] });
       await authAxios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position: 0, tags: tagsInput });
+      show({ message: `Added "${addingBook.title}" to ${selectedCategory}` });
       setAddTabState((prev: any) => ({ ...prev, addingBook: null, showAddModal: false, showComparisonModal: false, isComparing: false }));
       setIsProcessing(false);
     } else {
@@ -113,6 +112,7 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
       updated.splice(position, 0, { ...addingBook, tags: tagsInput });
       setBooks({ ...books, [selectedCategory]: updated });
       await authAxios.post(`${API}/books`, { ...addingBook, category: selectedCategory, position, tags: tagsInput });
+      show({ message: `Added "${addingBook.title}" to ${selectedCategory} at #${position + 1}` });
       setAddTabState((prev: any) => ({ ...prev, addingBook: null, low: 0, high: 0, midIndex: 0, showComparisonModal: false, isComparing: false }));
       setIsProcessing(false);
       return;
@@ -228,20 +228,20 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
     }
   }, [importQueue, isProcessing, addTabState.showAddModal, addTabState.showComparisonModal, addTabState.addingBook]);
 
-  const selectedTags = tagsInput.split(",").map((t: string) => t.trim()).filter(Boolean);
-
   return (
     <div>
       {csvError && (
-        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-sm text-rose-300">
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-[color:var(--cat-disliked)]/40 bg-[color:var(--cat-disliked)]/10 px-4 py-3 text-sm text-[color:var(--cat-disliked)]">
           <span>{csvError}</span>
-          <button onClick={() => setCsvError("")} aria-label="Dismiss" className="flex-none text-rose-400 hover:text-rose-200">✕</button>
+          <button onClick={() => setCsvError("")} aria-label="Dismiss" className="flex-none opacity-70 hover:opacity-100">
+            <X size={16} />
+          </button>
         </div>
       )}
 
-      <div className="mb-6 flex flex-wrap gap-3">
+      <div className="mb-6 flex flex-wrap gap-2">
         <input
-          className="min-w-[200px] flex-1 rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 shadow-sm transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          className="min-w-[200px] flex-1 rounded-lg border border-border-subtle bg-surface px-4 py-2.5 text-sm text-text-primary placeholder-text-muted transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           placeholder="Search for a book…"
           value={query}
           onChange={(e) => update("query", e.target.value)}
@@ -250,37 +250,53 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
         <Button onClick={handleSearch} disabled={isSearching}>
           {isSearching ? "Searching…" : "Search"}
         </Button>
-        <Button onClick={() => setShowManualEntryModal(true)} variant="secondary">Add Manually</Button>
-        <Button onClick={() => fileInputRef.current?.click()} variant="secondary">Import CSV</Button>
+        <Button onClick={() => setShowManualEntryModal(true)} variant="secondary" title="Add a book by title + author">
+          <PenLine size={14} />
+          Manual
+        </Button>
+        <Button onClick={() => fileInputRef.current?.click()} variant="secondary" title="Import a Goodreads CSV export">
+          <Upload size={14} />
+          Import
+        </Button>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" style={{ display: "none" }} />
       </div>
 
-      {!isComparing && results.map((book: any, i: number) => {
-        const exists = allBooks.some((b: any) => b.title === book.title && b.author === book.author);
-        return (
-          <div
-            key={`${book.title}-${book.author}-${i}`}
-            className="mb-3 flex items-center justify-between rounded-xl border border-zinc-600 bg-zinc-800 p-5 transition-colors duration-150 hover:border-zinc-500"
-          >
-            <div className="min-w-0">
-              <p className="break-words text-base font-semibold text-zinc-50">{book.title}</p>
-              <p className="mt-0.5 text-sm text-zinc-300">{book.author}</p>
-            </div>
-            <Button onClick={() => openAddModal(book)} disabled={exists} variant={exists ? "secondary" : "primary"} size="sm" className="ml-4 flex-none">
-              {exists ? "Added" : "Add +"}
-            </Button>
-          </div>
-        );
-      })}
+      {!isComparing && results.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface">
+          {results.map((book: any, i: number) => {
+            const exists = allBooks.some((b: any) => b.title === book.title && b.author === book.author);
+            return (
+              <div
+                key={`${book.title}-${book.author}-${i}`}
+                className="flex items-center justify-between gap-3 border-b border-border-subtle/60 px-4 py-3 last:border-b-0 hover:bg-surface-hover"
+              >
+                <div className="min-w-0">
+                  <p className="break-words text-[15px] font-medium text-text-primary">{book.title}</p>
+                  <p className="mt-0.5 text-sm text-text-secondary">{book.author}</p>
+                </div>
+                <Button
+                  onClick={() => openAddModal(book)}
+                  disabled={exists}
+                  variant={exists ? "secondary" : "primary"}
+                  size="sm"
+                  className="flex-none"
+                >
+                  {exists ? (<><Check size={14} /> Added</>) : (<><Plus size={14} /> Add</>)}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Manual Entry Modal */}
       {showManualEntryModal && (
         <Modal onClose={() => { setShowManualEntryModal(false); setManualTitle(""); setManualAuthor(""); setManualError(""); }}>
-          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-50">Add Book Manually</h2>
+          <h2 className="mb-6 font-serif text-xl font-semibold text-text-primary">Add book manually</h2>
           <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium text-zinc-300">Book Title</label>
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Book title</label>
             <input
-              className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-lg border border-border-subtle bg-surface-sunken px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               placeholder="Enter book title…"
               value={manualTitle}
               onChange={(e) => { setManualTitle(e.target.value); if (manualError) setManualError(""); }}
@@ -288,16 +304,16 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
             />
           </div>
           <div className="mb-2">
-            <label className="mb-2 block text-sm font-medium text-zinc-300">Author</label>
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Author</label>
             <input
-              className="w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-lg border border-border-subtle bg-surface-sunken px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               placeholder="Enter author name…"
               value={manualAuthor}
               onChange={(e) => { setManualAuthor(e.target.value); if (manualError) setManualError(""); }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleManualAdd(); } }}
             />
           </div>
-          {manualError && <p className="mb-4 mt-2 text-sm text-rose-400">{manualError}</p>}
+          {manualError && <p className="mb-4 mt-2 text-sm text-[color:var(--cat-disliked)]">{manualError}</p>}
           <Button onClick={handleManualAdd} className="mt-4 w-full">Continue</Button>
         </Modal>
       )}
@@ -305,15 +321,15 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
       {/* Add Book Modal */}
       {showAddModal && addingBook && (
         <Modal onClose={() => { setAddTabState((prev: any) => ({ ...prev, showAddModal: false, addingBook: null, isComparing: false, showComparisonModal: false })); setIsProcessing(false); }}>
-          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-50">Add Book</h2>
-          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-            <p className="font-medium text-zinc-100">{addingBook.title}</p>
-            <p className="mt-1 text-sm text-zinc-400">by {addingBook.author}</p>
-            {addingBook.rating > 0 && <p className="mt-2 text-sm font-medium text-amber-400">Goodreads rating: {addingBook.rating}/5</p>}
-            {addingBook.readCount > 1 && <p className="mt-1 text-sm font-medium text-amber-400">Read count: {addingBook.readCount}</p>}
+          <h2 className="mb-6 font-serif text-xl font-semibold text-text-primary">Add book</h2>
+          <div className="mb-4 rounded-lg border border-accent/30 bg-accent-bg p-4">
+            <p className="font-medium text-text-primary">{addingBook.title}</p>
+            <p className="mt-1 text-sm text-text-secondary">by {addingBook.author}</p>
+            {addingBook.rating > 0 && <p className="mt-2 text-sm font-medium text-accent">Goodreads rating: {addingBook.rating}/5</p>}
+            {addingBook.readCount > 1 && <p className="mt-1 text-sm font-medium text-accent">Read count: {addingBook.readCount}</p>}
           </div>
           <div className="mb-6">
-            <p className="mb-3 text-sm font-medium text-zinc-300">Category:</p>
+            <p className="mb-3 text-sm font-medium text-text-secondary">Category:</p>
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((c) => (
                 <Button key={c} onClick={() => update("selectedCategory", c)} variant={selectedCategory === c ? "primary" : "secondary"} size="sm">{c}</Button>
@@ -321,21 +337,15 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
             </div>
           </div>
           <div className="mb-6">
-            <p className="mb-2 text-sm font-medium text-zinc-300">Tags (optional):</p>
-            <input
-              className="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              placeholder="Type tags or click existing ones…"
+            <p className="mb-2 text-sm font-medium text-text-secondary">Tags (optional):</p>
+            <TagInput
               value={tagsInput}
-              onChange={(e) => update("tagsInput", e.target.value)}
+              onChange={(v) => update("tagsInput", v)}
+              allTags={allTags}
             />
-            <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto pr-2">
-              {allTags.map((tag) => (
-                <Button key={tag} onClick={() => handleTagClick(tag)} variant="tag" active={selectedTags.includes(tag)}>{tag}</Button>
-              ))}
-            </div>
           </div>
           <Button onClick={confirmAddBook} disabled={isProcessing} className="w-full">
-            {isProcessing ? "Adding…" : "Add & Compare"}
+            {isProcessing ? "Adding…" : "Add & compare"}
           </Button>
         </Modal>
       )}
@@ -343,20 +353,20 @@ const AddBookTab: React.FC<AddBookTabProps> = ({ books, setBooks, addTabState, s
       {/* Comparison Modal */}
       {showComparisonModal && currentComparison() && (
         <Modal onClose={() => { setAddTabState((prev: any) => ({ ...prev, showComparisonModal: false, isComparing: false, addingBook: null, low: 0, high: 0, midIndex: 0 })); setIsProcessing(false); }}>
-          <h2 className="mb-6 font-serif text-xl font-semibold text-zinc-50">Which did you like more?</h2>
+          <h2 className="mb-6 font-serif text-xl font-semibold text-text-primary">Which did you like more?</h2>
           <div className="mb-6 space-y-3">
-            <div className="rounded-xl border border-zinc-600 bg-zinc-900 p-5">
-              <p className="font-medium text-zinc-100">{currentComparison().title}</p>
-              <p className="mt-1 text-sm text-zinc-400">by {currentComparison().author}</p>
+            <div className="rounded-xl border border-border-subtle bg-surface-sunken p-5">
+              <p className="font-medium text-text-primary">{currentComparison().title}</p>
+              <p className="mt-1 text-sm text-text-secondary">by {currentComparison().author}</p>
             </div>
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
-              <p className="font-medium text-zinc-100">{addingBook.title}</p>
-              <p className="mt-1 text-sm text-zinc-400">by {addingBook.author}</p>
+            <div className="rounded-xl border border-accent/30 bg-accent-bg p-5">
+              <p className="font-medium text-text-primary">{addingBook.title}</p>
+              <p className="mt-1 text-sm text-text-secondary">by {addingBook.author}</p>
             </div>
           </div>
           <div className="flex gap-3">
-            <Button onClick={() => handleComparison(false)} variant="secondary" disabled={isProcessing} className="w-1/2">First Book</Button>
-            <Button onClick={() => handleComparison(true)} variant="primary" disabled={isProcessing} className="w-1/2">Second Book</Button>
+            <Button onClick={() => handleComparison(false)} variant="secondary" disabled={isProcessing} className="w-1/2">First book</Button>
+            <Button onClick={() => handleComparison(true)} variant="primary" disabled={isProcessing} className="w-1/2">Second book</Button>
           </div>
         </Modal>
       )}

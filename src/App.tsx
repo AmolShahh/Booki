@@ -4,9 +4,18 @@ import AddBookTab from "./components/AddBookTab";
 import RankingsTab from "./components/RankingsTab";
 import TbrTab from "./components/TbrTab";
 import RereadTab from "./components/RereadTab";
-import TabButton from "./components/TabButton";
+import Header from "./components/Header";
 import PublicView from "./components/PublicView";
 import { API } from "./components/api";
+
+type TabKey = "add" | "rankings" | "tbr" | "reread";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "add", label: "Add" },
+  { key: "rankings", label: "Rankings" },
+  { key: "tbr", label: "TBR" },
+  { key: "reread", label: "Reread" },
+];
 
 const App: React.FC = () => {
   // Serve the read-only public view at /public — no auth, no edit controls.
@@ -16,7 +25,8 @@ const App: React.FC = () => {
   }
 
   const [books, setBooks] = useState<any>({});
-  const [activeTab, setActiveTab] = useState<"add" | "rankings" | "tbr" | "reread">("add");
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabKey>("add");
 
   const [addTabState, setAddTabState] = useState<any>({
     query: "",
@@ -38,11 +48,27 @@ const App: React.FC = () => {
       setBooks(res.data);
     } catch (e) {
       console.error("Failed to fetch books:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchBooks();
+  }, []);
+
+  // Keyboard shortcut: 1/2/3/4 switches tabs (ignored while typing).
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      const idx = ["1", "2", "3", "4"].indexOf(e.key);
+      if (idx === -1) return;
+      const key = TABS[idx]?.key;
+      if (key) setActiveTab(key);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, []);
 
   const allTags = useMemo(() => {
@@ -63,34 +89,17 @@ const App: React.FC = () => {
   }, [books]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 p-6 text-zinc-100 sm:p-10">
-      <div className="mx-auto max-w-4xl">
-        <header className="mb-10 text-center">
-          <div className="mb-3 inline-flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
-            <span className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">Reading Log</span>
-          </div>
-          <h1 className="font-serif text-4xl font-semibold text-amber-400">Booki</h1>
-        </header>
+    <div className="min-h-screen bg-canvas text-text-primary">
+      <Header tabs={TABS} activeTab={activeTab} onSelectTab={setActiveTab} />
 
-        {/* Tab bar */}
-        <div className="mb-10 flex flex-wrap justify-center gap-1 border-b border-zinc-700">
-          <TabButton label="Add Book" isActive={activeTab === "add"} onClick={() => setActiveTab("add")} />
-          <TabButton label="Rankings" isActive={activeTab === "rankings"} onClick={() => setActiveTab("rankings")} />
-          <TabButton label="TBR" isActive={activeTab === "tbr"} onClick={() => setActiveTab("tbr")} />
-          <TabButton label="To Reread" isActive={activeTab === "reread"} onClick={() => setActiveTab("reread")} />
-        </div>
-
-        {/* Tab content */}
-        <div className="mx-auto max-w-2xl">
-          {activeTab === "add" && (
-            <AddBookTab books={books} setBooks={setBooks} addTabState={addTabState} setAddTabState={setAddTabState} allTags={allTags} />
-          )}
-          {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} allTags={allTags} />}
-          {activeTab === "tbr" && <TbrTab books={books} setBooks={setBooks} allTags={allTags} />}
-          {activeTab === "reread" && <RereadTab books={books} setBooks={setBooks} allTags={allTags} />}
-        </div>
-      </div>
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        {activeTab === "add" && (
+          <AddBookTab books={books} setBooks={setBooks} addTabState={addTabState} setAddTabState={setAddTabState} allTags={allTags} />
+        )}
+        {activeTab === "rankings" && <RankingsTab books={books} setBooks={setBooks} allTags={allTags} loading={loading} />}
+        {activeTab === "tbr" && <TbrTab books={books} setBooks={setBooks} allTags={allTags} loading={loading} />}
+        {activeTab === "reread" && <RereadTab books={books} setBooks={setBooks} allTags={allTags} loading={loading} />}
+      </main>
     </div>
   );
 };
